@@ -1,0 +1,48 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.wasm
+*.o
+*.cgo1.go
+*.cgo2.c
+*.cgo*.h
+*.test
+*.prof
+
+# Output of the go toolchain
+/bin/
+/pkg/
+/src/
+
+# Dependencies
+/vendor/
+
+# Test binary, generated for projects with package name "main"
+# in the root directory.
+go-build/
+
+# Go workspace file
+go.work
+
+# Environment variables
+.env
+.env.*
+
+# Editor or IDE specific files
+.idea/
+.vscode/
+*.swp
+*.bak
+*.orig
+*~
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Build outputs (e.g. from CGO)
+_obj/
+_test/
