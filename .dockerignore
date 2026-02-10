@@ -1,0 +1,20 @@
+# Ignore Go build cache
+.git
+.gitignore
+.env
+.vscode
+*.log
+tmp/
+vendor/
+
+# Go build artifacts
+*.a
+*.o
+
+# Exclude Dockerfile itself and .dockerignore
+Dockerfile
+.dockerignore
+README.md
+
+# Application specific (adjust as needed)
+config/*.local.json
