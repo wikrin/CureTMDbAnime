@@ -1,0 +1,130 @@
+name: Go Test
+
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      base_sha:
+        required: true
+        type: string
+        description: "Base SHA for comparing changes"
+      head_sha:
+        required: true
+        type: string
+        description: "Head SHA for comparing changes"
+    outputs:
+      test_skipped:
+        description: "Whether the tests were skipped due to non-code changes"
+        value: ${{ jobs.test.outputs.test_skipped }}
+
+env:
+  TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+  CURE_SOURCE: ${{ vars.CURE_SOURCE }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    outputs:
+      test_skipped: ${{ steps.determine_skip.outputs.skip_test }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for git diff
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.12'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.cache/go-mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-mod-${{ runner.os }}-
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Determine SHA for diff
+        id: determine_sha
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_call" ]]; then
+            echo "BASE_SHA=${{ github.event.inputs.base_sha }}" >> $GITHUB_ENV
+            echo "HEAD_SHA=${{ github.event.inputs.head_sha }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "BASE_SHA=${{ github.event.before }}" >> $GITHUB_ENV
+            echo "HEAD_SHA=${{ github.sha }}" >> $GITHUB_ENV
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+            echo "HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+          fi
+          echo "Using BASE_SHA: $BASE_SHA"
+          echo "Using HEAD_SHA: $HEAD_SHA"
+
+      - name: Check for File Changes and Skip Test
+        id: determine_skip
+        if: env.BASE_SHA != '' && env.HEAD_SHA != '' # 仅当 SHA 确定后才运行
+        run: |
+          echo "Comparing changes between $BASE_SHA and $HEAD_SHA"
+          CHANGED_FILES=$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")
+          echo "Changed files:"
+          echo "${CHANGED_FILES}"
+
+          NON_CODE_PATTERNS=(
+            ".github/"
+            "README.md"
+            "LICENSE"
+            "version.go" # Placeholder for future version file
+          )
+
+          SKIP_TEST="true"
+          if [ -z "${CHANGED_FILES}" ]; then
+            echo "No files changed, skipping tests."
+            echo "skip_test=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          for file in $CHANGED_FILES; do
+            IS_NON_CODE="false"
+            for pattern in "${NON_CODE_PATTERNS[@]}"; do
+              if [[ "$file" == "$pattern"* ]]; then # 检查文件是否以模式开头
+                IS_NON_CODE="true"
+                break
+              fi
+            done
+            if [[ "$IS_NON_CODE" == "false" ]]; then
+              echo "Found code change: $file. Not skipping tests."
+              SKIP_TEST="false"
+              break
+            fi
+          done
+          echo "skip_test=${SKIP_TEST}" >> $GITHUB_OUTPUT
+
+      - name: Clean Go test cache
+        if: steps.determine_skip.outputs.skip_test == 'false'
+        run: go clean -testcache
+      - name: Run Go tests
+        if: steps.determine_skip.outputs.skip_test == 'false'
+        run: go test -v ./...
+
+      - name: Run Go vet
+        if: steps.determine_skip.outputs.skip_test == 'false'
+        run: go vet ./...
+
+      - name: Summarize Test Result
+        if: always()
+        run: |
+          SKIP_TEST="${{ steps.determine_skip.outputs.skip_test }}"
+          JOB_STATUS="${{ job.status }}" # 获取当前 job 的状态 (success, failure, cancelled, etc.)
+
+          if [[ "$SKIP_TEST" == "true" ]]; then
+            echo "✅ Tests skipped due to non-code changes."
+          elif [[ "$JOB_STATUS" == "success" ]]; then
+            echo "✅ Tests passed successfully."
+          else
+            echo "❌ Tests failed."
+          fi

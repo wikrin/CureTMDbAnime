@@ -1,0 +1,170 @@
+{
+  "46195": {
+    "name": "物语系列",
+    "seasons": [
+      {
+        "season_number": 1,
+        "name": "化物语",
+        "episode_count": 15,
+        "include": [
+          {
+            "order": 13,
+            "season_number": 0,
+            "episode_number": 2,
+            "count": 3
+          }
+        ]
+      },
+      {
+        "season_number": 2,
+        "name": "伪物语",
+        "episode_count": 11
+      },
+      {
+        "season_number": 3,
+        "name": "猫物语(黑)",
+        "episode_count": 4,
+        "include": [
+          {
+            "order": 1,
+            "season_number": 0,
+            "episode_number": 6,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "season_number": 4,
+        "name": "猫物语(白)",
+        "episode_count": 5
+      },
+      {
+        "season_number": 5,
+        "name": "倾物语",
+        "episode_count": 4
+      },
+      {
+        "season_number": 6,
+        "name": "囮物语",
+        "episode_count": 4
+      },
+      {
+        "season_number": 7,
+        "name": "鬼物语",
+        "episode_count": 4
+      },
+      {
+        "season_number": 8,
+        "name": "恋物语",
+        "episode_count": 6
+      },
+      {
+        "season_number": 9,
+        "name": "花物语",
+        "episode_count": 5,
+        "include": [
+          {
+            "order": 1,
+            "season_number": 0,
+            "episode_number": 13,
+            "count": 5
+          }
+        ]
+      },
+      {
+        "season_number": 10,
+        "name": "凭物语",
+        "episode_count": 4,
+        "include": [
+          {
+            "order": 1,
+            "season_number": 0,
+            "episode_number": 18,
+            "count": 4
+          }
+        ]
+      },
+      {
+        "season_number": 11,
+        "name": "终物语",
+        "episode_count": 12
+      },
+      {
+        "season_number": 12,
+        "name": "历物语",
+        "episode_count": 12,
+        "include": [
+          {
+            "order": 1,
+            "season_number": 0,
+            "episode_number": 22,
+            "count": 12
+          }
+        ]
+      },
+      {
+        "season_number": 13,
+        "name": "伤物语",
+        "episode_count": 3,
+        "include": [
+          {
+            "order": 1,
+            "type": "movie",
+            "tmdbid": 357786
+          },
+          {
+            "order": 2,
+            "type": "movie",
+            "tmdbid": 362584
+          },
+          {
+            "order": 3,
+            "type": "movie",
+            "tmdbid": 362585
+          }
+        ]
+      },
+      {
+        "season_number": 14,
+        "name": "终物语 第二季",
+        "episode_count": 7,
+        "include": [
+          {
+            "order": 1,
+            "season_number": 0,
+            "episode_number": 35,
+            "count": 7
+          }
+        ]
+      },
+      {
+        "season_number": 15,
+        "name": "续终物语",
+        "episode_count": 6,
+        "include": [
+          {
+            "order": 1,
+            "season_number": 0,
+            "episode_number": 42,
+            "count": 6
+          }
+        ]
+      }
+    ]
+  },
+  "241811": {
+    "name": "噗妮露是可爱史莱姆",
+    "seasons": [
+      {
+        "season_number": 1,
+        "name": "第一季",
+        "episode_count": 23
+      },
+      {
+        "season_number": 2,
+        "name": "第二季",
+        "episode_count": 5
+      }
+    ]
+  }
+}
