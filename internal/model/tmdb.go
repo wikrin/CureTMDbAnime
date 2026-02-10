@@ -1,0 +1,203 @@
+package model
+
+// 它定义了剧集的详细属性, 用于在应用程序中表示和传输单个剧集数据.
+type Episode struct {
+	// 唯一标识符
+	ID int `json:"id"`
+	// 名称
+	Name *string `json:"name,omitempty"`
+	// 概要描述
+	Overview *string `json:"overview,omitempty"`
+	// 首播日期. 格式通常为 YYYY-MM-DD
+	AirDate *string `json:"air_date,omitempty"`
+	// 集号
+	EpisodeNumber int `json:"episode_number"`
+	// 季号
+	SeasonNumber int `json:"season_number"`
+	// 剧集静态图片（如剧照）的相对路径
+	StillPath *string `json:"still_path,omitempty"`
+	// 时长, 单位为分钟
+	Runtime *int `json:"runtime,omitempty"`
+	// 额外字段
+	AdditionalData map[string]any
+}
+
+func (e *Episode) keyPart1() int {
+	return e.SeasonNumber
+}
+
+func (e *Episode) keyPart2() int {
+	return e.EpisodeNumber
+}
+
+// 返回 Episode 的 MappingKey 等效值
+func (e *Episode) MappingKey() IntPair {
+	return IntPair{e.keyPart1(), e.keyPart2()}
+}
+
+func (s Episode) MarshalJSON() ([]byte, error) { // 修改接收器类型
+	// 定义一个别名类型以避免无限递归
+	type Alias Episode // 修改别名类型
+	// 将当前实例转换为别名类型
+	temp := (Alias)(s)
+
+	// 调用辅助函数合并已知字段和额外数据，并进行最终编码
+	return mergeAndMarshal(temp, s.AdditionalData)
+}
+
+func (t *Episode) Decode(data map[string]any) error {
+	err := decodeWithMapstructure(data, t)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Season 结构体对应于外部服务（如 TMDb API）中的剧集季信息.
+// 它定义了剧集季的详细属性, 包括该季包含的剧集列表.
+type Season struct {
+	// 唯一标识符.
+	ID int `json:"id"`
+	// 季名称
+	Name *string `json:"name,omitempty"`
+	// 概要描述
+	Overview *string `json:"overview,omitempty"`
+	// 季海报
+	PosterPath *string `json:"poster_path,omitempty"`
+	// 季号
+	SeasonNumber int `json:"season_number"`
+	// 评分
+	VoteAverage *float64 `json:"vote_average,omitempty"`
+	// 季的首播日期. 格式通常为 YYYY-MM-DD
+	AirDate *string `json:"air_date,omitempty"`
+	// 季总集数
+	EpisodeCount *int `json:"episode_count,omitempty"`
+	// 季包含的剧集列表
+	Episodes []Episode `json:"episodes,omitempty"`
+	// 额外字段
+	AdditionalData map[string]any
+}
+
+func (t *Season) Decode(data map[string]any) error {
+	err := decodeWithMapstructure(data, t)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s Season) MarshalJSON() ([]byte, error) { // 修改接收器类型
+	// 定义一个别名类型以避免无限递归
+	type Alias Season // 修改别名类型
+	// 将当前实例转换为别名类型
+	temp := (Alias)(s)
+
+	// 调用辅助函数合并已知字段和额外数据，并进行最终编码
+	return mergeAndMarshal(temp, s.AdditionalData)
+}
+
+// TMDb API 中的电视节目信息.
+type TVShow struct {
+	// 唯一标识符
+	ID int `json:"id"`
+	// 节目名称
+	Name *string `json:"name,omitempty"`
+	// 节目原始名称
+	OriginalName *string `json:"original_name,omitempty"`
+	// 概要描述
+	Overview *string `json:"overview,omitempty"`
+	// 海报图片
+	PosterPath *string `json:"poster_path,omitempty"`
+	// 背景图片
+	BackdropPath *string `json:"backdrop_path,omitempty"`
+	// 节目包含的所有季的列表
+	SeasonsInfo []Season `json:"seasons"`
+	// 目包含的总季数
+	NumberOfSeasons int `json:"number_of_seasons"`
+	// 节目包含的总集数
+	NumberOfEpisodes int `json:"number_of_episodes"`
+	// 评分
+	VoteAverage *float64 `json:"vote_average,omitempty"`
+	// 节目的首播日期. 格式通常为 YYYY-MM-DD
+	FirstAirDate *string `json:"first_air_date,omitempty"`
+	// 类型列表
+	Genres []map[string]any `json:"genres,omitempty"`
+	// 原产国
+	OriginCountry []string `json:"origin_country,omitempty"`
+	// 额外字段
+	AdditionalData map[string]any
+}
+
+func (t *TVShow) Seasons() map[int][]int {
+	origSeasonsMap := make(map[int][]int, len(t.SeasonsInfo))
+	for _, item := range t.SeasonsInfo {
+		// 使用循环创建并填充从1开始的序列
+		episodeSlice := make([]int, int(*item.EpisodeCount))
+		for i := range episodeSlice {
+			episodeSlice[i] = i + 1
+		}
+		origSeasonsMap[item.SeasonNumber] = episodeSlice
+	}
+	return origSeasonsMap
+}
+
+func (t *TVShow) FindAirdateBySeasonNumber(seasonNumber int) *string {
+	for _, item := range t.SeasonsInfo {
+		if item.SeasonNumber == seasonNumber {
+			return item.AirDate
+		}
+	}
+	return nil
+}
+
+func (t *TVShow) GenreIds() []int {
+	ids := make([]int, len(t.Genres))
+	for i, item := range t.Genres {
+		if id, idOk := item["id"].(float64); idOk {
+			ids[i] = int(id)
+		}
+	}
+	return ids
+}
+
+func (t *TVShow) Decode(data map[string]any) error {
+	err := decodeWithMapstructure(data, t)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s TVShow) MarshalJSON() ([]byte, error) { // 修改接收器类型
+	// 定义一个别名类型以避免无限递归
+	type Alias TVShow
+	// 将当前实例转换为别名类型
+	temp := (Alias)(s)
+
+	// 调用辅助函数合并已知字段和额外数据，并进行最终编码
+	return mergeAndMarshal(temp, s.AdditionalData)
+}
+
+func (t *TVShow) UpdateSeasonStats() {
+	count := 0
+	for _, season := range t.SeasonsInfo {
+		if season.SeasonNumber != 0 { // 不计算第0季
+			count++
+		}
+	}
+	t.NumberOfSeasons = count
+
+	total := 0
+	for _, season := range t.SeasonsInfo {
+		if season.SeasonNumber != 0 && season.EpisodeCount != nil { // 不计算第0季
+			total += *season.EpisodeCount
+		}
+	}
+	t.NumberOfEpisodes = total
+}
+
+// 当 Seasons 被修改时, 提供一个方法来更新统计
+func (t *TVShow) SetSeasons(seasons []Season) {
+	t.SeasonsInfo = seasons
+	t.UpdateSeasonStats()
+}
