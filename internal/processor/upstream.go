@@ -99,7 +99,14 @@ func (u *UpstreamTMDB) GetMovieDetail(tmdbID int, params url.Values) (map[string
 		return nil, err
 	}
 	if result != nil {
-		collection.RenameKeysInPlace(result, map[string]string{"release_date": "air_date", "title": "name"})
+		collection.RenameKeysInPlace(
+			result,
+			map[string]string{
+				"release_date": "air_date",
+				"title": "name",
+				"backdrop_path": "still_path",
+			},
+		)
 		result["season_number"] = -1
 		result["episode_number"] = tmdbID
 	}
