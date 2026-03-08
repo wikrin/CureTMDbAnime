@@ -140,16 +140,6 @@ func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesE
 				return bangumiResult, bangumiErr // 成功获取季信息，提前返回
 			}
 		}
-
-		var airDate *string = nil
-		if tvShow.FirstAirDate != nil {
-			airDate = tvShow.FirstAirDate
-		}
-		if sub, e := ss.bangumiAPI.Search(*tvShow.OriginalName, airDate); e == nil && len(sub) > 0 {
-			bangumiResult, bangumiErr = ss.bangumiAPI.SeasonInfo(sub[0])
-		} else if e != nil {
-			bangumiErr = e
-		}
 	}
 	return bangumiResult, bangumiErr
 }
