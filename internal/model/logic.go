@@ -18,7 +18,7 @@ type LogicSeries struct {
 }
 
 // orgMap 聚合所有季的剧集映射
-func (ls *LogicSeries) orgMap() map[IntPair]IntPair {
+func (ls *LogicSeries) OrgMap() map[IntPair]IntPair {
 	result := make(map[IntPair]IntPair)
 
 	for _, season := range ls.Seasons {

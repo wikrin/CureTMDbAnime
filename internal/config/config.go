@@ -2,8 +2,9 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"strconv"
+
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 // 环境变量键
@@ -46,46 +47,43 @@ var AppSettings Settings
 // LoadConfig 从环境变量加载配置
 func LoadConfig() error {
 
+	// 设置默认值
+	viper.SetDefault(EnvKeyHost, DefaultHost)
+	viper.SetDefault(EnvKeyPort, DefaultPort)
+	viper.SetDefault(EnvKeyDebug, DefaultDebug)
+	viper.SetDefault(EnvKeyTmdbUpstreamURL, DefaultTmdbUpstreamURL)
+	viper.SetDefault(EnvKeyCureSource, DefaultCureSource)
+	viper.SetDefault(EnvKeyProxy, DefaultProxy)
+	viper.SetDefault(EnvKeyDataDir, DefaultDataDir)
+
+	// 定义命令行参数并绑定到 viper
+	pflag.String(EnvKeyHost, DefaultHost, "服务监听地址")
+	pflag.Int(EnvKeyPort, DefaultPort, "服务监听端口")
+	pflag.Bool(EnvKeyDebug, DefaultDebug, "启用调试模式")
+	pflag.String(EnvKeyTmdbUpstreamURL, DefaultTmdbUpstreamURL, "TMDB 上游 API URL")
+	pflag.String(EnvKeyCureSource, DefaultCureSource, "CureTMDb 数据源 URL")
+	pflag.String(EnvKeyProxy, DefaultProxy, "HTTP/HTTPS 代理地址 (例如: http://127.0.0.1:7890)")
+	pflag.String(EnvKeyDataDir, DefaultDataDir, "数据存储目录")
+	pflag.Parse() // 解析命令行参数
+
+	err := viper.BindPFlags(pflag.CommandLine)
+	if err != nil {
+		return fmt.Errorf("绑定命令行参数失败: %w", err)
+	}
+
+	// 配置 Viper 从环境变量读取
+	viper.AutomaticEnv() // 自动将环境变量绑定到匹配的键
+
+	// 将配置值填充到 AppSettings 结构体
 	AppSettings = Settings{
-		HOST:              getEnv(EnvKeyHost, DefaultHost),
-		PORT:              getEnvAsInt(EnvKeyPort, DefaultPort),
-		DEBUG:             getEnvAsBool(EnvKeyDebug, DefaultDebug),
-		TMDB_UPSTREAM_URL: getEnv(EnvKeyTmdbUpstreamURL, DefaultTmdbUpstreamURL),
-		CURE_SOURCE:       getEnv(EnvKeyCureSource, DefaultCureSource),
-		PROXY:             getEnv(EnvKeyProxy, DefaultProxy),
-		DATA_DIR:          getEnv(EnvKeyDataDir, DefaultDataDir),
+		HOST:              viper.GetString(EnvKeyHost),
+		PORT:              viper.GetInt(EnvKeyPort),
+		DEBUG:             viper.GetBool(EnvKeyDebug),
+		TMDB_UPSTREAM_URL: viper.GetString(EnvKeyTmdbUpstreamURL),
+		CURE_SOURCE:       viper.GetString(EnvKeyCureSource),
+		PROXY:             viper.GetString(EnvKeyProxy),
+		DATA_DIR:          viper.GetString(EnvKeyDataDir),
 	}
+
 	return nil
-}
-
-// getEnv 获取环境变量字符串值，若无则返回默认值
-func getEnv(key string, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return defaultValue
-}
-
-// getEnvAsInt 获取环境变量整数值，若无则返回默认值
-func getEnvAsInt(key string, defaultValue int) int {
-	if value, exists := os.LookupEnv(key); exists {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
-		} else {
-			fmt.Printf("警告: 环境变量 %s 的值 '%s' 无法转换为整数，使用默认值 %d: %v\n", key, value, defaultValue, err)
-		}
-	}
-	return defaultValue
-}
-
-// getEnvAsBool 获取环境变量布尔值，若无则返回默认值
-func getEnvAsBool(key string, defaultValue bool) bool {
-	if value, exists := os.LookupEnv(key); exists {
-		if boolValue, err := strconv.ParseBool(value); err == nil {
-			return boolValue
-		} else {
-			fmt.Printf("警告: 环境变量 %s 的值 '%s' 无法转换为布尔值，使用默认值 %t: %v\n", key, value, defaultValue, err)
-		}
-	}
-	return defaultValue
 }

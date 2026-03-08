@@ -102,8 +102,8 @@ func (u *UpstreamTMDB) GetMovieDetail(tmdbID int, params url.Values) (map[string
 		collection.RenameKeysInPlace(
 			result,
 			map[string]string{
-				"release_date": "air_date",
-				"title": "name",
+				"release_date":  "air_date",
+				"title":         "name",
 				"backdrop_path": "still_path",
 			},
 		)

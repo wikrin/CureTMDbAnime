@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -47,25 +48,25 @@ func init() {
 
 func Debug(msg string, args ...any) {
 	if currentLogLevel <= LevelDebug {
-		AppLogger.debugLogger.Printf(msg, args...)
+		AppLogger.debugLogger.Output(2, fmt.Sprintf(msg, args...))
 	}
 }
 
 func Info(msg string, args ...any) {
 	if currentLogLevel <= LevelInfo {
-		AppLogger.infoLogger.Printf(msg, args...)
+		AppLogger.infoLogger.Output(2, fmt.Sprintf(msg, args...))
 	}
 }
 
 func Warn(msg string, args ...any) {
 	if currentLogLevel <= LevelWarn {
-		AppLogger.warnLogger.Printf(msg, args...)
+		AppLogger.warnLogger.Output(2, fmt.Sprintf(msg, args...))
 	}
 }
 
 func Error(msg string, args ...any) {
 	if currentLogLevel <= LevelError {
-		AppLogger.errorLogger.Printf(msg, args...)
+		AppLogger.errorLogger.Output(2, fmt.Sprintf(msg, args...))
 	}
 }
 

@@ -72,7 +72,7 @@ func (ss *SeasonSplitter) GetLogicSeries(tmdbID int, originalInfo map[string]any
 		}
 	}
 
-	logger.Info("缓存未命中, 处理数据: cacheKey=%s", cacheKey)
+	logger.Debug("缓存未命中, 处理数据: cacheKey=%s", cacheKey)
 	logic, err := ss.processTV(tmdbID, originalInfo, params)
 	if err != nil {
 		return nil, model.NewServiceError(http.StatusInternalServerError, err.Error(), err)
