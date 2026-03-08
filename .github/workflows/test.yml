@@ -1,7 +1,14 @@
 name: Go Test
 
+concurrency:
+  group: staging_environment
+  cancel-in-progress: true
+
 on:
+  push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_call:
     inputs:
       base_sha:
@@ -31,23 +38,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history for git diff
+          fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.24.12'
-
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/.cache/go-mod
-          key: go-mod-${{ runner.os }}-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            go-mod-${{ runner.os }}-
-
-      - name: Download Go modules
-        run: go mod download
+          go-version-file: "go.mod"
 
       - name: Determine SHA for diff
         id: determine_sha
@@ -67,7 +63,7 @@ jobs:
 
       - name: Check for File Changes and Skip Test
         id: determine_skip
-        if: env.BASE_SHA != '' && env.HEAD_SHA != '' # 仅当 SHA 确定后才运行
+        if: env.BASE_SHA != '' && env.HEAD_SHA != ''
         run: |
           echo "Comparing changes between $BASE_SHA and $HEAD_SHA"
           CHANGED_FILES=$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}")
@@ -114,6 +110,10 @@ jobs:
       - name: Run Go vet
         if: steps.determine_skip.outputs.skip_test == 'false'
         run: go vet ./...
+
+      - name: Go Build Verify
+        if: steps.determine_skip.outputs.skip_test == 'false'
+        run: go build -v ./...
 
       - name: Summarize Test Result
         if: always()
