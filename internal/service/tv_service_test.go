@@ -109,10 +109,10 @@ func TestTVService_GetTVDetail_Integration(t *testing.T) {
 			assert.Nil(err)
 			assert.NotNil(tvShow)
 			assert.True(tvShow.NumberOfSeasons >= tt.minSeasons)
-			assert.True(len(tvShow.SeasonsInfo) >= tt.minSeasonsInfo)
+			assert.True(len(tvShow.Seasons) >= tt.minSeasonsInfo)
 			assert.True(tvShow.NumberOfEpisodes >= tt.minEpisodes)
 
-			for _, season := range tvShow.SeasonsInfo {
+			for _, season := range tvShow.Seasons {
 				if assertion, ok := tt.seasonAssertions[season.SeasonNumber]; ok {
 					assert.True(*season.EpisodeCount >= assertion.minEpisodeCount)
 					assert.Equal(*season.AirDate, assertion.airDate)

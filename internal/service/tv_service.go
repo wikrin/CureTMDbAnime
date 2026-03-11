@@ -96,7 +96,7 @@ func (s *TVService) applyTVLogicAndTransform(tmdbID int, originalTVShowData map[
 		}
 
 		mergedSeasons := []model.Season{}
-		season0 := s.findSeasonByNumber(tvShow.SeasonsInfo, 0)
+		season0 := s.findSeasonByNumber(tvShow.Seasons, 0)
 		if season0 != nil {
 			mergedSeasons = append(mergedSeasons, *season0)
 		}

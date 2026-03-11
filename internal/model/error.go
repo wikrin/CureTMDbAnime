@@ -23,10 +23,10 @@ func NewErrorResponse(success bool, code int, message string) ErrorResponse {
 
 // ServiceError 定义服务层错误结构体
 type ServiceError struct {
-	Code       int    `json:"code"`            // 响应状态码
-	StatusCode int    `json:"status_code"`     // tmdb API 响应码
-	Message    string `json:"status_message"`  // 响应状态信息
-	Err        error  `json:"error,omitempty"` // 原始错误
+	Code       int    `json:"code" mapstructure:"code"`                       // 响应状态码
+	StatusCode int    `json:"status_code" mapstructure:"status_code"`         // tmdb API 响应码
+	Message    string `json:"status_message" mapstructure:"status_message"`   // 响应状态信息
+	Err        error  `json:"error,omitempty" mapstructure:"error,omitempty"` // 原始错误
 }
 
 func (t *ServiceError) Decode(data map[string]any) error {

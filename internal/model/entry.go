@@ -9,12 +9,12 @@ import (
 
 // IncludeEntry 表示一个包含条目
 type IncludeEntry struct {
-	Order         int    `json:"order"`                    // 集
-	EpisodeNumber *int   `json:"episode_number,omitempty"` // 原集号
-	SeasonNumber  *int   `json:"season_number,omitempty"`  // 原季号
-	Count         int    `json:"count"`                    // 数量
-	Type          string `json:"type"`                     // 类型
-	TMDBID        *int   `json:"tmdbid,omitempty"`         // TMDB ID
+	Order         int    `mapstructure:"order"`                    // 集
+	EpisodeNumber *int   `mapstructure:"episode_number,omitempty"` // 原集号
+	SeasonNumber  *int   `mapstructure:"season_number,omitempty"`  // 原季号
+	Count         int    `mapstructure:"count"`                    // 数量
+	Type          string `mapstructure:"type"`                     // 类型
+	TMDBID        *int   `mapstructure:"tmdbid,omitempty"`         // TMDB ID
 }
 
 func (ie *IncludeEntry) ApplyDefaults() {
@@ -41,10 +41,10 @@ func (ie *IncludeEntry) IsSpecialSeason() bool {
 
 // 季的条目信息
 type SeasonEntry struct {
-	Name         *string         `json:"name,omitempty"`    // 季名称
-	EpisodeCount int             `json:"episode_count"`     // 剧集总数
-	SeasonNumber int             `json:"season_number"`     // 季编号
-	Include      []*IncludeEntry `json:"include,omitempty"` // 包含的剧集范围
+	Name         *string         `mapstructure:"name,omitempty"`    // 季名称
+	EpisodeCount int             `mapstructure:"episode_count"`     // 剧集总数
+	SeasonNumber int             `mapstructure:"season_number"`     // 季编号
+	Include      []*IncludeEntry `mapstructure:"include,omitempty"` // 包含的剧集范围
 }
 
 // HasSpecialSeason 检查该季条目的 Include 列表中是否包含特殊季（第0季）的条目
@@ -138,8 +138,8 @@ func (se *SeasonEntry) MissingEpisodes() []int {
 
 // SeriesEntry 表示一个系列条目信息
 type SeriesEntry struct {
-	Name    *string        `json:"name,omitempty"` // 系列名称
-	Seasons []*SeasonEntry `json:"seasons"`        // 包含的季列表
+	Name    *string        `mapstructure:"name,omitempty"` // 系列名称
+	Seasons []*SeasonEntry `mapstructure:"seasons"`        // 包含的季列表
 }
 
 func (t *SeriesEntry) Decode(data map[string]any) error {

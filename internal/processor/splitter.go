@@ -176,7 +176,7 @@ func (ss *SeasonSplitter) processTV(tmdbID int, originalInfo map[string]any, par
 		return nil, nil
 	}
 
-	if !seriesEntry.HasInconsistent(tvShow.Seasons()) {
+	if !seriesEntry.HasInconsistent(tvShow.SeasonsInfo()) {
 		return nil, nil
 	}
 
