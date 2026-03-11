@@ -170,46 +170,46 @@ func TestTVService_GetEpisodeDetail_Integration(t *testing.T) {
 	}
 
 	tests := []struct {
-		testName              string
-		tvID                  int
-		seasonNumber          int
-		episodeNumber         int
+		testName      string
+		tvID          int
+		seasonNumber  int
+		episodeNumber int
 	}{
 		{
-			testName:              "《葬送的芙莉莲》 S02E01 集号转换",
-			tvID:                  209867,
-			seasonNumber:          2,
-			episodeNumber:         1,
+			testName:      "《葬送的芙莉莲》 S02E01 集号转换",
+			tvID:          209867,
+			seasonNumber:  2,
+			episodeNumber: 1,
 		},
 		{
-			testName:              "《葬送的芙莉莲》 S01E028 集号转换",
-			tvID:                  209867,
-			seasonNumber:          1,
-			episodeNumber:         28,
+			testName:      "《葬送的芙莉莲》 S01E028 集号转换",
+			tvID:          209867,
+			seasonNumber:  1,
+			episodeNumber: 28,
 		},
 		{
-			testName:              "《物语系列》 S01E15 集号转换",
-			tvID:                  46195,
-			seasonNumber:          1,
-			episodeNumber:         15,
+			testName:      "《物语系列》 S01E15 集号转换",
+			tvID:          46195,
+			seasonNumber:  1,
+			episodeNumber: 15,
 		},
 		{
-			testName:              "《物语系列》 S13E01 集号转换",
-			tvID:                  46195,
-			seasonNumber:          13,
-			episodeNumber:         1,
+			testName:      "《物语系列》 S13E01 集号转换",
+			tvID:          46195,
+			seasonNumber:  13,
+			episodeNumber: 1,
 		},
 		{
-			testName:              "《物语系列》 S02E01 集号转换",
-			tvID:                  46195,
-			seasonNumber:          2,
-			episodeNumber:         1,
+			testName:      "《物语系列》 S02E01 集号转换",
+			tvID:          46195,
+			seasonNumber:  2,
+			episodeNumber: 1,
 		},
 		{
-			testName:              "《物语系列》 S11E01 集号转换",
-			tvID:                  46195,
-			seasonNumber:          11,
-			episodeNumber:         1,
+			testName:      "《物语系列》 S11E01 集号转换",
+			tvID:          46195,
+			seasonNumber:  11,
+			episodeNumber: 1,
 		},
 	}
 
