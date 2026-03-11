@@ -43,7 +43,7 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 		fullURL += "?" + params.Encode()
 	}
 
-	logger.Info("上游请求: url=%s", fullURL)
+	logger.Debug("上游请求: url=%s", fullURL)
 
 	resp, err := u.httpClient.GetRes(context.Background(), fullURL, nil)
 	if resp == nil {

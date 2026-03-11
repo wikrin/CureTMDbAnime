@@ -15,7 +15,6 @@ func init() {
 		logger.Error("配置加载失败: %v", err)
 		return
 	}
-	logger.Info("TMDB Cure Proxy 服务启动")
 }
 
 func main() {
