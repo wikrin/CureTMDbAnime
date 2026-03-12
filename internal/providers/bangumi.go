@@ -85,7 +85,7 @@ const (
 	ErrMsgGetAllSequelsFailed                = "获取所有续集时出错"
 	ErrMsgGetDetailFailed                    = "获取 Bangumi ID %d 的详情时出错"
 	ErrMsgGetSortAndEpFailed                 = "获取 Bangumi ID %d 的 sort 和 ep 时出错"
-	LogMsgWarnChineseNumberNotFullySupported = "警告: 中文数字或复杂季度字符串 '%s' 未完全支持, 默认设置为 %d. "
+	LogMsgWarnChineseNumberNotFullySupported = "警告: 无法识别的季号字符串 '%s', 默认设置为 %d."
 )
 
 const (
@@ -94,10 +94,91 @@ const (
 
 const (
 	RegexPatternPunctuationsSpaces   = `[\p{P}\p{S}\s]`
-	RegexPatternChineseSeason        = `[第\s]*([一二三四五六七八九十0-9]+)\s*(?:季|期)`
-	RegexPatternEnglishSeason        = `Season\s*([0-9]+)`
+	RegexPatternChineseSeason        = `[第\s]*([一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾0-9]+)\s*(?:季|期)`
+	RegexPatternEnglishSeason        = `(?:Season|S)\s*([0-9]+)`
 	RegexPatternEnglishOrdinalSeason = `([0-9]{1,2})(?:st|nd|rd|th)\s+season`
+	RegexPatternRomanSeason          = `(?i)(?:Season|S)\s*([IVXLCDM]+)`
 )
+
+// numberConverter 将各种数字字符串转换为整数。
+func numberConverter(s string) int {
+	if num, err := strconv.Atoi(s); err == nil {
+		return num
+	}
+
+	chineseNumberMap := map[rune]int{
+		'零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
+		'五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+		'壹': 1, '贰': 2, '叁': 3, '肆': 4, '伍': 5,
+		'陆': 6, '柒': 7, '捌': 8, '玖': 9,
+	}
+	chineseUnitMap := map[rune]int{
+		'十': 10, '拾': 10,
+	}
+
+	// 尝试解析中文数字
+	// 扩展正则表达式以匹配“几十几”的模式，例如“二十三”
+	if isChinese := regexp.MustCompile(`^[零一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾]+$`).MatchString(s); isChinese {
+		runes := []rune(s)
+		result := 0
+		temp := 0 // 存储当前数字值
+
+		for i := range runes {
+			r := runes[i]
+			if val, ok := chineseNumberMap[r]; ok {
+				temp = val
+			} else if unit, ok := chineseUnitMap[r]; ok {
+				if temp == 0 { // 处理“十”或“拾”单独出现的情况，例如“十一”中的“十”
+					temp = 1
+				}
+				result += temp * unit
+				temp = 0 // 重置temp，以便处理下一个数字
+			} else {
+				return 0 // 遇到无法识别的中文数字字符
+			}
+		}
+		result += temp // 加上最后一个数字（例如“二十三”中的“三”）
+
+		if result != 0 {
+			return result
+		}
+	}
+
+	romanNumerals := map[rune]int{
+		'I': 1,
+		'V': 5,
+		'X': 10,
+		'L': 50,
+		'C': 100,
+		'D': 500,
+		'M': 1000,
+	}
+
+	// 尝试解析罗马数字
+	sUpper := strings.ToUpper(s)
+	// 使用 RegexPatternRomanSeason 的字符集来判断是否为罗马数字
+	if isRoman := regexp.MustCompile(`^[IVXLCDM]+$`).MatchString(sUpper); isRoman {
+		total := 0
+		prev := 0
+		for i := len(sUpper) - 1; i >= 0; i-- {
+			curr := romanNumerals[rune(sUpper[i])]
+			if curr == 0 { // 非法罗马数字字符
+				return 0
+			}
+			if curr < prev {
+				total -= curr
+			} else {
+				total += curr
+			}
+			prev = curr
+		}
+		if total != 0 { // 只有在有效解析到罗马数字时才返回
+			return total
+		}
+	}
+
+	return 0
+}
 
 var (
 	bangumiClientInstance *BangumiAPIClient
@@ -135,6 +216,7 @@ func NewBangumiAPIClient() *BangumiAPIClient {
 		userAgent: "wikrin/CureTMDbAnime (https://github.com/wikrin/CureTMDbAnime)",
 		seasonNumberRegexes: []*regexp.Regexp{
 			regexp.MustCompile(RegexPatternChineseSeason),
+			regexp.MustCompile(RegexPatternRomanSeason),
 			regexp.MustCompile(RegexPatternEnglishSeason),
 			regexp.MustCompile(RegexPatternEnglishOrdinalSeason),
 		},
@@ -482,58 +564,32 @@ func (b *BangumiAPIClient) GetSortAndEp(sid int) (*int, *int, error) {
 func (b *BangumiAPIClient) ExtractSeasonNumber(name, nameCN string) int {
 	parse := func(text string) int {
 		if text == "" {
-			return 0
+			return 0 // 未找到时返回 0
 		}
 		patterns := b.seasonNumberRegexes
 		for _, re := range patterns {
 			m := re.FindStringSubmatch(text)
 			if len(m) > 1 {
-				if num, err := strconv.Atoi(m[1]); err == nil {
+				if num := numberConverter(m[1]); num != 0 {
 					return num
 				}
-				switch m[1] {
-				case "一":
-					return 1
-				case "二":
-					return 2
-				case "三":
-					return 3
-				case "四":
-					return 4
-				case "五":
-					return 5
-				case "六":
-					return 6
-				case "七":
-					return 7
-				case "八":
-					return 8
-				case "九":
-					return 9
-				case "十":
-					return 10
-				case "Ⅰ":
-					return 1
-				case "Ⅱ":
-					return 2
-				case "Ⅲ":
-					return 3
-				case "Ⅳ":
-					return 4
-				default:
-					logger.Warn("%s: 数字=%s, 默认季度号=%d", LogMsgWarnChineseNumberNotFullySupported, m[1], DefaultSeasonNumber)
-					return DefaultSeasonNumber
-				}
+				logger.Warn("%s: '%s', 默认设置为 %d.", LogMsgWarnChineseNumberNotFullySupported, m[1], DefaultSeasonNumber)
+				return DefaultSeasonNumber
 			}
 		}
 		return 0
 	}
 
-	if num := parse(nameCN); num != 0 {
-		return num
+	// 优先从 nameCN 提取
+	if seasonNum := parse(nameCN); seasonNum != 0 {
+		return seasonNum
 	}
-	if num := parse(name); num != 0 {
-		return num
+
+	// 如果 nameCN 没找到，尝试从 name 提取
+	if seasonNum := parse(name); seasonNum != 0 {
+		return seasonNum
 	}
+
+	// 如果两个都未能提取到有效季号，则返回 DefaultSeasonNumber (1)
 	return DefaultSeasonNumber
 }
