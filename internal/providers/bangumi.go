@@ -373,6 +373,11 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 		return nil, fmt.Errorf("季信息: 获取所有续集 ID 失败: %w", err)
 	}
 
+	// Bangumi系列条目仅一个时，返回 nil 不进行拆分处理
+	if len(sids) < 2 {
+		return nil, nil
+	}
+
 	for _, sid := range sids {
 		detail, err := b.Detail(sid)
 		if err != nil {
@@ -394,13 +399,11 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 
 		num := b.ExtractSeasonNumber(name, nameCN)
 
-		eps := 0
-		if detail[BangumiEpisodes] != nil {
-			eps = int(detail[BangumiEpisodes].(float64))
-		} else if detail[BangumiTotalEpisodes] != nil {
-			eps = int(detail[BangumiTotalEpisodes].(float64))
-		} else {
-			eps = DefaultEpisodeCount
+		eps := DefaultEpisodeCount
+		if val, ok := detail[BangumiEpisodes].(float64); ok && val > 0 {
+			eps = int(val)
+		} else if val, ok := detail[BangumiTotalEpisodes].(float64); ok && val > 0 {
+			eps = int(val)
 		}
 
 		if _, ok := bgmSeasons[num]; !ok {
