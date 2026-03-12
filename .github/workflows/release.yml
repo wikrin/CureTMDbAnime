@@ -3,10 +3,40 @@ name: Release & Docker Build
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      is_prerelease:
+        description: 'Is this a pre-release?'
+        type: boolean
+        required: true
+        default: false
+      release_tag:
+        description: 'The tag name for the release (e.g., v1.0.0)'
+        type: string
+        required: true
+      target_commitish:
+        description: 'The commitish value that determines where the Git tag is created from. Can be any branch, commit, or tag.'
+        type: string
+        required: false
+        default: ${{ github.ref }} # Defaults to the current ref if not provided
 
 jobs:
+  # 设置全局变量
+  set-globals:
+    runs-on: ubuntu-latest
+    outputs:
+      is_prerelease: ${{ github.event_name == 'release' && github.event.release.prerelease || github.event_name == 'workflow_dispatch' && github.event.inputs.is_prerelease }}
+      release_tag: ${{ github.event_name == 'release' && github.ref_name || github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag }}
+      target_commitish: ${{ github.event_name == 'release' && github.event.release.target_commitish || github.event_name == 'workflow_dispatch' && (github.event.inputs.target_commitish || github.ref) }}
+      ref_name: ${{ github.event_name == 'release' && github.ref_name || github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag }}
+      event_name: ${{ github.event_name }}
+    steps:
+      - name: Dummy Step to set outputs
+        run: echo "Setting global variables..."
+
   # 调用测试工作流
   call-test:
+    needs: set-globals # 添加依赖
     uses: ./.github/workflows/test.yml
     with:
       base_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -15,7 +45,7 @@ jobs:
 
   # 交叉编译
   build:
-    needs: call-test
+    needs: [set-globals, call-test] # 添加依赖
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -45,7 +75,7 @@ jobs:
 
   # Docker 构建
   docker_build:
-    needs: call-test
+    needs: [set-globals, call-test] # 修改 needs 依赖
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -66,9 +96,9 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/curetmdbanime
           tags: |
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
-            type=raw,value=preview,enable=${{ github.event.release.prerelease }}
-            type=raw,value=${{ github.ref_name }}
+            type=raw,value=latest,enable=${{ !needs.set-globals.outputs.is_prerelease && needs.set-globals.outputs.event_name == 'release' }}
+            type=raw,value=preview,enable=${{ needs.set-globals.outputs.is_prerelease }}
+            type=raw,value=${{ needs.set-globals.outputs.ref_name }}
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
@@ -83,21 +113,21 @@ jobs:
 
   # 发布任务，在 GitHub Release 发布时上传
   release:
-    needs: [build, docker_build]
+    needs: [set-globals, build, docker_build] # 修改 needs 依赖
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: needs.set-globals.outputs.event_name == 'release' || needs.set-globals.outputs.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.target_commitish }}
+          ref: ${{ needs.set-globals.outputs.target_commitish }}
 
       - name: Fetch existing release notes
         run: |
           release_body=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" | \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ needs.set-globals.outputs.release_tag }}" | \
             jq -r '.body // ""')
           echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
           echo "$release_body" >> $GITHUB_ENV
@@ -113,6 +143,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: ./artifacts/**/*
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ needs.set-globals.outputs.release_tag }}
+          name: ${{ needs.set-globals.outputs.release_tag }}
           body: ${{ env.RELEASE_BODY }}
