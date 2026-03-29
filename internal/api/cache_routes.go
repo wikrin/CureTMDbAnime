@@ -23,49 +23,34 @@ func GetLogic(tmdbID int) *model.LogicSeries {
 	return nil
 }
 
-// RegisterTVRoutes 注册 TV API 路由
+// RegisterCacheRoutes 注册缓存 API 路由
 func RegisterCacheRoutes(routerGroup *gin.RouterGroup) {
-	// 获取特定剧集详情
-	routerGroup.GET("/:tmdb_id/mapping/:season_number/:episode_number", func(ginContext *gin.Context) {
-		GetSeriesMapping(ginContext)
+	routerGroup.GET("/mapping/:tmdb_id", func(ginContext *gin.Context) {
+		GetSeriesMappings(ginContext)
 	})
 }
 
-// GetSeriesMapping 获取指定 TMDB ID 的集数映射
-func GetSeriesMapping(ginContext *gin.Context) {
+// GetSeriesMappings 获取指定 TMDB ID 的整剧集数映射
+func GetSeriesMappings(ginContext *gin.Context) {
 	tmdbIDStr := ginContext.Param("tmdb_id")
-	seasonNumberStr := ginContext.Param("season_number")
-	episodeNumberStr := ginContext.Param("episode_number")
 
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil {
 		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的 TMDB ID 格式", err))
 		return
 	}
-	seasonNumber, err := strconv.Atoi(seasonNumberStr)
-	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的季度号格式", err))
-		return
-	}
-	episodeNumber, err := strconv.Atoi(episodeNumberStr)
-	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的剧集号格式", err))
-		return
-	}
-	requestKey := model.IntPair{
-		Season:  seasonNumber,
-		Episode: episodeNumber,
-	}
+
+	response := map[string]map[string]model.IntPair{}
 	if cachedLogic := GetLogic(tmdbID); cachedLogic != nil {
-		if episodesMap := cachedLogic.OrgMap(); len(episodesMap) > 0 {
-			if key, ok := episodesMap[requestKey]; ok {
-				ginContext.JSON(http.StatusOK, gin.H{
-					"season":  key.Season,
-					"episode": key.Episode,
-				})
-				return
+		for source, target := range cachedLogic.OrgMap() {
+			seasonKey := strconv.Itoa(source.Season)
+			episodeKey := strconv.Itoa(source.Episode)
+			if _, ok := response[seasonKey]; !ok {
+				response[seasonKey] = map[string]model.IntPair{}
 			}
+			response[seasonKey][episodeKey] = target
 		}
 	}
-	ginContext.JSON(http.StatusOK, gin.H{})
+
+	ginContext.JSON(http.StatusOK, response)
 }

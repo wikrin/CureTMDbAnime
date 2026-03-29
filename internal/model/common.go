@@ -9,8 +9,8 @@ import (
 )
 
 type IntPair struct {
-	Season  int
-	Episode int
+	Season  int `json:"season"`
+	Episode int `json:"episode"`
 }
 
 // decodeWithMapstructure 使用 mapstructure 解码 map[string]any 到目标结构体
