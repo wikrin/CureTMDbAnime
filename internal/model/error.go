@@ -1,8 +1,8 @@
 package model
 
 import (
-	"curetmdbanime/internal/logger"
 	"fmt"
+	"strings"
 )
 
 // ErrorResponse 定义统一的错误响应结构
@@ -39,22 +39,30 @@ func (t *ServiceError) Decode(data map[string]any) error {
 
 // NewServiceError 创建 ServiceError 实例
 func NewServiceError(code int, message string, err error) *ServiceError {
-	se := &ServiceError{
+	return &ServiceError{
 		Code:    code,
-		Message: message,
+		Message: strings.TrimSpace(message),
 		Err:     err,
 	}
-	// 同时记录错误信息
-	logger.Error("%s", se.Error())
-	return se
 }
 
 // Error 实现 error 接口，提供错误字符串表示
 func (se *ServiceError) Error() string {
-	if se.Err != nil {
-		return fmt.Sprintf("服务错误: 状态码=%d, 消息=%s, 原始错误=%v", se.Code, se.Message, se.Err)
+	if se == nil {
+		return "<nil>"
 	}
-	return fmt.Sprintf("服务错误: 状态码=%d, 消息=%s", se.Code, se.Message)
+
+	parts := []string{fmt.Sprintf("服务错误: 状态码=%d", se.Code)}
+	if se.Message != "" {
+		parts = append(parts, fmt.Sprintf("消息=%s", se.Message))
+	}
+	if se.Err != nil {
+		errText := se.Err.Error()
+		if se.Message == "" || errText != se.Message {
+			parts = append(parts, fmt.Sprintf("原始错误=%s", errText))
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // Unwrap 返回原始错误

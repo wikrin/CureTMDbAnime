@@ -75,7 +75,7 @@ func (ss *SeasonSplitter) GetLogicSeries(tmdbID int, originalInfo map[string]any
 	logger.Debug("缓存未命中, 处理数据: cacheKey=%s", cacheKey)
 	logic, err := ss.processTV(tmdbID, originalInfo, params)
 	if err != nil {
-		return nil, model.NewServiceError(http.StatusInternalServerError, err.Error(), err)
+		return nil, model.NewServiceError(http.StatusInternalServerError, "构建剧集逻辑失败", err)
 	}
 	if logic != nil {
 		ss.logicCache.Set(cacheKey, logic, cache.DefaultExpiration)

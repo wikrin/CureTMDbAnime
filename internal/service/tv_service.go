@@ -32,7 +32,7 @@ func (s *TVService) ensureLogicLoaded(tmdbID int, params url.Values) *model.Serv
 	// 尝试从上游获取原始信息
 	originalTVShowData, err := s.upstream.GetTVDetail(tmdbID, params)
 	if err != nil {
-		logger.Error("upstream.GetTVDetail 获取上游电视剧详情失败: %s", err.Err.Error())
+		logger.Error("upstream.GetTVDetail 获取上游电视剧详情失败: %v", err)
 		return err
 	}
 	if originalTVShowData == nil {
@@ -51,7 +51,7 @@ func (s *TVService) ensureLogicLoaded(tmdbID int, params url.Values) *model.Serv
 func (s *TVService) GetTVDetail(tmdbID int, params url.Values) (*model.TVShow, *model.ServiceError) {
 	originalTVShowData, err := s.upstream.GetTVDetail(tmdbID, params)
 	if err != nil {
-		logger.Error("upstream.GetTVDetail 获取上游电视剧详情失败: %s", err.Err.Error())
+		logger.Error("upstream.GetTVDetail 获取上游电视剧详情失败: %v", err)
 		return nil, err
 	}
 	if originalTVShowData == nil {

@@ -53,18 +53,18 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 
 	bodyBytes, err := net.ReadResponseBody(resp)
 	if err != nil {
-		return nil, model.NewServiceError(http.StatusInternalServerError, fmt.Sprintf("读取响应体错误: %v, 方法: %s, URL: %s", err, "GET", fullURL), err)
+		return nil, model.NewServiceError(http.StatusInternalServerError, fmt.Sprintf("读取响应体错误: 方法=%s, URL=%s", "GET", fullURL), err)
 	}
 
 	var result map[string]any
 	if err := json.Unmarshal(bodyBytes, &result); err != nil {
-		return nil, model.NewServiceError(http.StatusInternalServerError, fmt.Sprintf("解析 JSON 响应错误: %v", err), err)
+		return nil, model.NewServiceError(http.StatusInternalServerError, "解析 JSON 响应错误", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		var se model.ServiceError
 		if err = se.Decode(result); err != nil {
-			return nil, model.NewServiceError(http.StatusInternalServerError, fmt.Sprintf("结构体转换错误: %v", err), err)
+			return nil, model.NewServiceError(http.StatusInternalServerError, "结构体转换错误", err)
 		}
 		se.Code = resp.StatusCode
 		return nil, &se
