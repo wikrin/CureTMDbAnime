@@ -62,7 +62,7 @@ func ProxyHandler(c *gin.Context) {
 	// 使用 HTTP 客户端发送代理请求
 	resp, err := net.GetHTTPClientWrapper().Client.Do(req)
 	if err != nil {
-		logger.Error("%s: %s - %v", ErrMsgProxyRequestFailed, upstreamURL, err)
+		logger.Error("%s: %v", ErrMsgProxyRequestFailed, err)
 		c.String(http.StatusBadGateway, ErrMsgProxyRequestFailed)
 		return
 	}

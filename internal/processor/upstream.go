@@ -47,13 +47,13 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 
 	resp, err := u.httpClient.GetRes(context.Background(), fullURL, nil)
 	if resp == nil {
-		return nil, model.NewServiceError(http.StatusInternalServerError, fmt.Sprintf("HTTP 响应为空: %s", fullURL), err)
+		return nil, model.NewServiceError(http.StatusInternalServerError, "HTTP 响应为空", err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := net.ReadResponseBody(resp)
 	if err != nil {
-		return nil, model.NewServiceError(http.StatusInternalServerError, fmt.Sprintf("读取响应体错误: 方法=%s, URL=%s", "GET", fullURL), err)
+		return nil, model.NewServiceError(http.StatusInternalServerError, "读取响应体错误", err)
 	}
 
 	var result map[string]any

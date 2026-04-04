@@ -63,7 +63,7 @@ func GetHTTPClientWrapper() *HTTPClientWrapper {
 func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL string, headers map[string]string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, requestURL, bytes.NewBuffer(body))
 	if err != nil {
-		return nil, fmt.Errorf("创建 HTTP 请求 '%s %s' 失败: %w", method, requestURL, err)
+		return nil, fmt.Errorf("创建 HTTP 请求失败: %w", err)
 	}
 
 	for key, value := range headers {
@@ -74,7 +74,7 @@ func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL stri
 
 	resp, err := h.Client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("执行 HTTP 请求 '%s %s' 失败: %w", method, requestURL, err)
+		return nil, fmt.Errorf("执行 HTTP 请求失败: %w", err)
 	}
 	return resp, nil
 }

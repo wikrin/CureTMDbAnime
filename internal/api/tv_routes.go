@@ -29,7 +29,6 @@ func handleError(ginContext *gin.Context, serviceErr *model.ServiceError) {
 	if statusCode == 0 {
 		statusCode = http.StatusInternalServerError
 	}
-	logger.Error("处理错误时使用的 HTTP 状态码: %d", statusCode) // 添加日志以诊断无效状态码
 
 	errorResponse := model.NewErrorResponse(false, serviceErr.Code, serviceErr.Message)
 	ginContext.JSON(statusCode, errorResponse)
