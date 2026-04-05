@@ -84,7 +84,6 @@ const (
 	ErrMsgEpisodesDataItemFormat             = "剧集列表数据项格式错误: 预期为 map[string]any, 实际为 %T"
 	ErrMsgGetAllSequelsFailed                = "获取所有续集时出错"
 	ErrMsgGetDetailFailed                    = "获取 Bangumi ID %d 的详情时出错"
-	ErrMsgGetSortAndEpFailed                 = "获取 Bangumi ID %d 的 sort 和 ep 时出错"
 	LogMsgWarnChineseNumberNotFullySupported = "警告: 无法识别的季号字符串 '%s', 默认设置为 %d."
 )
 
@@ -495,14 +494,14 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 				SeasonNumber: num,
 			}
 		} else {
-			sortVal, epVal, err := b.GetSortAndEp(sid)
+			isSortEqualEp, err := b.IsFirstEpisodeSequential(sid)
 			if err != nil {
-				logger.Error("%s: Bangumi ID=%d, 错误=%v", ErrMsgGetSortAndEpFailed, sid, err)
+				logger.Error("错误=%v", err)
 				bgmSeasons[num].EpisodeCount += eps
 				continue
 			}
 
-			if sortVal != nil && epVal != nil && *sortVal == *epVal {
+			if isSortEqualEp {
 				maxSeasonNum := 0
 				for k := range bgmSeasons {
 					if k > maxSeasonNum {
@@ -532,32 +531,24 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 	return &model.SeriesEntry{Seasons: seasons}, nil
 }
 
-// GetSortAndEp 从剧集中获取 sort 和 ep 值。
-func (b *BangumiAPIClient) GetSortAndEp(sid int) (*int, *int, error) {
+// IsFirstEpisodeSequential 判断首集的 sort 和 ep 值是否相等。
+func (b *BangumiAPIClient) IsFirstEpisodeSequential(sid int) (bool, error) {
 	episodes, err := b.Episodes(sid)
 	if err != nil {
-		return nil, nil, fmt.Errorf("获取排序与剧集号: 获取 Bangumi ID '%d' 剧集失败: %w", sid, err)
+		return false, fmt.Errorf("Bangumi ID '%d' 比较顺序号序与剧集号失败: 获取剧集失败: %w", sid, err)
 	}
 	if len(episodes) == 0 {
-		return nil, nil, nil
+		return false, fmt.Errorf("Bangumi ID '%d' 比较顺序号序与剧集号失败: 剧集列表为空", sid)
 	}
 
 	ep0 := episodes[0]
-	var sortVal, epVal *int
-
-	if sortData, ok := ep0[BangumiSortKey].(float64); ok {
-		s := int(sortData)
-		sortVal = &s
-	}
-	if epData, ok := ep0[BangumiEpKey].(float64); ok {
-		e := int(epData)
-		epVal = &e
+	sortData, sortOK := ep0[BangumiSortKey].(float64)
+	epData, epOK := ep0[BangumiEpKey].(float64)
+	if !sortOK || !epOK {
+		return false, nil
 	}
 
-	if sortVal == nil || epVal == nil {
-		return nil, nil, nil
-	}
-	return sortVal, epVal, nil
+	return int(sortData) == int(epData), nil
 }
 
 // ExtractSeasonNumber 从名称中提取季度号。

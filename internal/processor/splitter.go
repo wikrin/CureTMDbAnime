@@ -98,50 +98,100 @@ func (ss *SeasonSplitter) fetchCureTMDbEntry(tvShow model.TVShow) (*model.Series
 
 // 从 Bangumi API 获取剧集信息
 func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesEntry, error) {
-	var bangumiResult *model.SeriesEntry
-	var bangumiErr error
-
+	// 仅处理日本动漫且季数较少 (<3) 的情况
 	isAnime := slices.Contains(tvShow.GenreIds(), 16)
-	if isAnime && slices.Contains(tvShow.OriginCountry, "JP") {
-		seasonCount := tvShow.NumberOfSeasons
+	if !isAnime || !slices.Contains(tvShow.OriginCountry, "JP") {
+		return nil, nil
+	}
 
-		if seasonCount > 0 && seasonCount < 3 {
-			if seasonCount == 2 {
-				bangumiItemsFor2Seasons, err := ss.bangumiAPI.Search(*tvShow.OriginalName, tvShow.FindAirdateBySeasonNumber(seasonCount))
-				if err != nil {
-					logger.Error("Bangumi API 搜索 seasonCount=2 失败: %v", err)
-				} else if len(bangumiItemsFor2Seasons) > 0 {
-					itemFor2Seasons := bangumiItemsFor2Seasons[0]
-					if itemFor2Seasons != nil {
-						if id, ok := itemFor2Seasons[providers.BangumiResponseID].(float64); ok {
-							resultSort, resultEp, getSortEpErr := ss.bangumiAPI.GetSortAndEp(int(id))
-							if getSortEpErr != nil {
-								logger.Error("Bangumi API GetSortAndEp 失败: %v", getSortEpErr)
-							} else if resultSort != nil && resultEp != nil && *resultSort == *resultEp {
-								return nil, nil // 条件满足但无 SeriesEntry 返回
-							}
-						}
-					}
-				}
-			}
+	seasonCount := tvShow.NumberOfSeasons
+	if seasonCount <= 0 || seasonCount >= 3 {
+		return nil, nil
+	}
 
-			var airDateStr *string = nil
-			if tvShow.FirstAirDate != nil {
-				airDateStr = tvShow.FirstAirDate
-			}
-			bangumiItemsForGeneralSearch, err := ss.bangumiAPI.Search(*tvShow.OriginalName, airDateStr)
-			if err != nil {
-				logger.Error("Bangumi API 通用搜索季信息 (seasonCount < 3) 失败: %v", err)
-			} else if len(bangumiItemsForGeneralSearch) > 0 {
-				bangumiResult, err = ss.bangumiAPI.SeasonInfo(bangumiItemsForGeneralSearch[0])
-				if err != nil {
-					bangumiErr = fmt.Errorf("Bangumi API SeasonInfo 通用搜索后失败 (seasonCount < 3): %w", err)
-				}
-				return bangumiResult, bangumiErr // 成功获取季信息，提前返回
-			}
+	// 当季数为 2 时，检查是否应视为单季连载
+	if seasonCount == 2 {
+		shouldSkip, err := ss.handleTwoSeasonsCheck(tvShow)
+		if err != nil {
+			return nil, err
+		}
+		if shouldSkip {
+			return nil, nil // 条件满足但无 SeriesEntry 返回
 		}
 	}
-	return bangumiResult, bangumiErr
+
+	// 通用搜索逻辑
+	return ss.performGeneralBangumiSearch(tvShow)
+}
+
+// 处理季数为2时的特殊逻辑
+// 返回: shouldSkip (是否跳过后续处理), err (错误信息)
+func (ss *SeasonSplitter) handleTwoSeasonsCheck(tvShow model.TVShow) (bool, error) {
+	bangumiItems, err := ss.bangumiAPI.Search(*tvShow.OriginalName, tvShow.FindAirdateBySeasonNumber(2))
+	if err != nil {
+		logger.Error("Bangumi API 搜索 seasonCount=2 失败: %v", err)
+		return false, nil // 搜索失败不阻断流程，继续执行通用搜索
+	}
+
+	if len(bangumiItems) == 0 {
+		return false, nil
+	}
+
+	item := bangumiItems[0]
+	if item == nil {
+		return false, nil
+	}
+
+	// 提取季号
+	nameCN, okCN := item[providers.BangumiNameCN].(string)
+	name, okName := item[providers.BangumiName].(string)
+	if !okCN || !okName {
+		return false, nil
+	}
+
+	seasonNum := ss.bangumiAPI.ExtractSeasonNumber(nameCN, name)
+	if seasonNum != 1 {
+		return false, nil
+	}
+
+	// 检查 ID 类型并验证序列性
+	idVal, ok := item[providers.BangumiResponseID].(float64)
+	if !ok {
+		return false, nil
+	}
+
+	isSequential, err := ss.bangumiAPI.IsFirstEpisodeSequential(int(idVal))
+	if err != nil {
+		logger.Error("Bangumi API GetSortAndEp 失败: %v", err)
+		return false, err
+	}
+
+	return !isSequential, nil
+}
+
+// 执行通用的 Bangumi 搜索并获取季信息
+func (ss *SeasonSplitter) performGeneralBangumiSearch(tvShow model.TVShow) (*model.SeriesEntry, error) {
+	var airDateStr *string
+	if tvShow.FirstAirDate != nil {
+		airDateStr = tvShow.FirstAirDate
+	}
+
+	bangumiItems, err := ss.bangumiAPI.Search(*tvShow.OriginalName, airDateStr)
+	if err != nil {
+		logger.Error("Bangumi API 通用搜索季信息 (seasonCount < 3) 失败: %v", err)
+		return nil, nil // 搜索失败返回 nil, nil，由调用者决定如何处理
+	}
+
+	if len(bangumiItems) == 0 {
+		return nil, nil
+	}
+
+	seriesEntry, err := ss.bangumiAPI.SeasonInfo(bangumiItems[0])
+	if err != nil {
+		return nil, fmt.Errorf("Bangumi API SeasonInfo 通用搜索后失败: %w", err)
+	}
+
+	return seriesEntry, nil
 }
 
 // 顺序从 CureTMDb 和 Bangumi 获取剧集信息
