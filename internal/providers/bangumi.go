@@ -38,7 +38,7 @@ const (
 	BangumiResponseID       = "id"
 	BangumiRelationSequel   = "续集"
 	BangumiPlatform         = "platform"
-	BangumiPlatformMovie    = "剧场版"
+	BangumiPlatformTV       = "TV"
 	BangumiNameCN           = "name_cn"
 	BangumiName             = "name"
 	BangumiEpisodes         = "eps"
@@ -414,6 +414,7 @@ func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
 	}
 
 	recursiveFetch(bid)
+	logger.Info("Bangumi ID %d 续集条目: %d", bid, sequence)
 	return sequence, nil
 }
 
@@ -440,11 +441,15 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 		if err != nil {
 			logger.Error("获取 Bangumi ID %d 的详情时出错: 错误=%v", sid, err)
 			continue
-		}
-		if detail == nil || (detail[BangumiPlatform] != nil && detail[BangumiPlatform].(string) == BangumiPlatformMovie) {
+		}else if detail == nil {
+			logger.Warn("Bangumi ID %d 详情为空", sid)
+			continue
+		}else if detail[BangumiPlatform] != nil && detail[BangumiPlatform].(string) != BangumiPlatformTV {
+			logger.Info("Bangumi ID %d, %s 不符合 %s, 跳过处理", sid, detail[BangumiPlatform], BangumiPlatformTV)
 			continue
 		}
 
+		logger.Debug("处理条目[%d]: %s",sid, detail)
 		nameCN := ""
 		if nc, ok := detail[BangumiNameCN].(string); ok {
 			nameCN = nc
