@@ -36,7 +36,7 @@ jobs:
       test_skipped: ${{ steps.determine_skip.outputs.skip_test }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
