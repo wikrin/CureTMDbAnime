@@ -64,30 +64,6 @@ const (
 )
 
 const (
-	ErrMsgJSONEncodeRequestFailed            = "JSON 请求体编码错误"
-	ErrMsgBangumiAPIRequestFailed            = "Bangumi API 请求错误"
-	ErrMsgBangumiAPIRequestStatusCode        = "Bangumi API 请求失败, 状态码: %d"
-	ErrMsgReadResponseBodyFailed             = "读取响应体错误"
-	ErrMsgJSONDecodeResponseFailed           = "JSON 响应体解码错误"
-	LogMsgResponseContent                    = "响应内容: %s"
-	LogMsgParseAirDateFailed                 = "解析播出日期 %s 错误"
-	ErrMsgSearchResponseFormat               = "搜索响应格式错误: 预期为 map[string]any, 实际为 %T"
-	ErrMsgSearchDataFieldFormat              = "搜索响应中 'data' 字段格式错误: 预期为 []any, 实际为 %T"
-	ErrMsgSearchDataItemFormat               = "搜索响应中的数据项格式错误: 预期为 map[string]any, 实际为 %T"
-	ErrMsgDetailResponseFormat               = "详情响应格式错误: 预期为 map[string]any, 实际为 %T"
-	ErrMsgFetchSubjectsFailed                = "获取条目 %d 的相关条目错误"
-	ErrMsgSubjectsResponseFormat             = "相关条目响应格式错误: 预期为 []any 或 {\"\": []any}, 实际为 %T"
-	ErrMsgSubjectsDataItemFormat             = "相关条目数据项格式错误: 预期为 map[string]any, 实际为 %T"
-	ErrMsgFetchEpisodesFailed                = "获取条目 %d 的剧集列表错误"
-	ErrMsgEpisodesResponseFormat             = "剧集列表响应格式错误: 预期为 map[string]any, 实际为 %T"
-	ErrMsgEpisodesDataFieldFormat            = "剧集列表响应中 'data' 字段格式错误: 预期为 []any, 实际为 %T"
-	ErrMsgEpisodesDataItemFormat             = "剧集列表数据项格式错误: 预期为 map[string]any, 实际为 %T"
-	ErrMsgGetAllSequelsFailed                = "获取所有续集时出错"
-	ErrMsgGetDetailFailed                    = "获取 Bangumi ID %d 的详情时出错"
-	LogMsgWarnChineseNumberNotFullySupported = "警告: 无法识别的季号字符串 '%s', 默认设置为 %d."
-)
-
-const (
 	DateFormat = "2006-01-02"
 )
 
@@ -246,12 +222,12 @@ func (b *BangumiAPIClient) invoke(method, endpoint string, body any, params url.
 
 	bodyBytes, err := b.apiClient.DoRequest(context.Background(), method, BangumiAPIBaseURL, endpoint, body, params, headers)
 	if err != nil {
-		return nil, fmt.Errorf(ErrMsgBangumiAPIRequestFailed+": %w", err)
+		return nil, fmt.Errorf("Bangumi API 请求错误: %w", err)
 	}
 
 	result, err := net.UnmarshalResponse[any](bodyBytes)
 	if err != nil {
-		return nil, fmt.Errorf(ErrMsgJSONDecodeResponseFailed+": %w", err)
+		return nil, fmt.Errorf("JSON 响应体解码错误: %w", err)
 	}
 
 	if method == http.MethodGet {
@@ -269,7 +245,7 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 
 	parsedAirDate, err := time.Parse(DateFormat, *airDate)
 	if err != nil {
-		logger.Error("%s: airDate=%s, 错误=%v", LogMsgParseAirDateFailed, *airDate, err)
+		logger.Error("解析播出日期 %s 错误: %v", *airDate, err)
 		return nil, fmt.Errorf("搜索: 解析播出日期 '%s' 失败: %w", *airDate, err)
 	}
 
@@ -290,7 +266,7 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 
 	resp, err := b.invoke(http.MethodPost, b.urls["search"], jsonBody, nil)
 	if err != nil {
-		logger.Error("%s: %v", ErrMsgBangumiAPIRequestFailed, err)
+		logger.Error("Bangumi API 请求错误: %v", err)
 		return nil, fmt.Errorf("搜索: 调用 Bangumi API 搜索 '%s' 失败: %w", title, err)
 	}
 
@@ -300,12 +276,12 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 
 	respMap, ok := resp.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf(ErrMsgSearchResponseFormat, resp)
+		return nil, fmt.Errorf("搜索响应格式错误: 预期为 map[string]any, 实际为 %T", resp)
 	}
 
 	data, ok := respMap[BangumiResponseDataKey].([]any)
 	if !ok {
-		return nil, fmt.Errorf(ErrMsgSearchDataFieldFormat, respMap[BangumiResponseDataKey])
+		return nil, fmt.Errorf("搜索响应中 'data' 字段格式错误: 预期为 []any, 实际为 %T", respMap[BangumiResponseDataKey])
 	}
 
 	var results []map[string]any
@@ -313,7 +289,7 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 		if m, isMap := item.(map[string]any); isMap {
 			results = append(results, m)
 		} else {
-			return nil, fmt.Errorf(ErrMsgSearchDataItemFormat, item)
+			return nil, fmt.Errorf("搜索响应中的数据项格式错误: 预期为 map[string]any, 实际为 %T", item)
 		}
 	}
 	return results, nil
@@ -332,7 +308,7 @@ func (b *BangumiAPIClient) Detail(bid int) (map[string]any, error) {
 
 	detailMap, ok := resp.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf(ErrMsgDetailResponseFormat, resp)
+		return nil, fmt.Errorf("详情响应格式错误: 预期为 map[string]any, 实际为 %T", resp)
 	}
 	return detailMap, nil
 }
@@ -342,7 +318,7 @@ func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["subjects"], bid)
 	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("相关条目: 获取 Bangumi ID '%d' 相关条目失败: %w", bid, err)
+		return nil, fmt.Errorf("获取 Bangumi ID '%d' 相关条目失败: %w", bid, err)
 	}
 	if resp == nil {
 		return nil, nil
@@ -357,10 +333,10 @@ func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
 		if isMap {
 			data, ok = respMap[""].([]any)
 			if !ok {
-				return nil, fmt.Errorf(ErrMsgSubjectsResponseFormat, resp)
+				return nil, fmt.Errorf("相关条目响应格式错误: 预期为 []any 或 {\"\": []any}, 实际为 %T", resp)
 			}
 		} else {
-			return nil, fmt.Errorf(ErrMsgSubjectsResponseFormat, resp)
+			return nil, fmt.Errorf("相关条目响应格式错误: 预期为 []any 或 {\"\": []any}, 实际为 %T", resp)
 		}
 	}
 
@@ -369,7 +345,7 @@ func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
 		if m, isMap := item.(map[string]any); isMap {
 			results = append(results, m)
 		} else {
-			return nil, fmt.Errorf(ErrMsgSubjectsDataItemFormat, item)
+			return nil, fmt.Errorf("相关条目数据项格式错误: 预期为 map[string]any, 实际为 %T", item)
 		}
 	}
 	return results, nil
@@ -388,12 +364,12 @@ func (b *BangumiAPIClient) Episodes(bid int) ([]map[string]any, error) {
 
 	respMap, ok := resp.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf(ErrMsgEpisodesResponseFormat, resp)
+		return nil, fmt.Errorf("剧集列表响应格式错误: 预期为 map[string]any, 实际为 %T", resp)
 	}
 
 	data, ok := respMap[BangumiResponseDataKey].([]any)
 	if !ok {
-		return nil, fmt.Errorf(ErrMsgEpisodesDataFieldFormat, respMap[BangumiResponseDataKey])
+		return nil, fmt.Errorf("剧集列表响应中 'data' 字段格式错误: 预期为 []any, 实际为 %T", respMap[BangumiResponseDataKey])
 	}
 
 	var results []map[string]any
@@ -401,7 +377,7 @@ func (b *BangumiAPIClient) Episodes(bid int) ([]map[string]any, error) {
 		if m, isMap := item.(map[string]any); isMap {
 			results = append(results, m)
 		} else {
-			return nil, fmt.Errorf(ErrMsgEpisodesDataItemFormat, item)
+			return nil, fmt.Errorf("剧集列表数据项格式错误: 预期为 map[string]any, 实际为 %T", item)
 		}
 	}
 	return results, nil
@@ -422,7 +398,7 @@ func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
 
 		related, err := b.Subjects(currentBID)
 		if err != nil {
-			logger.Error("%s: Bangumi ID=%d, 错误=%v", ErrMsgFetchSubjectsFailed, currentBID, err)
+			logger.Error("错误=%v", err)
 			return
 		}
 		if related == nil {
@@ -462,7 +438,7 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 	for _, sid := range sids {
 		detail, err := b.Detail(sid)
 		if err != nil {
-			logger.Error("%s: Bangumi ID=%d, 错误=%v", ErrMsgGetDetailFailed, sid, err)
+			logger.Error("获取 Bangumi ID %d 的详情时出错: 错误=%v", sid, err)
 			continue
 		}
 		if detail == nil || (detail[BangumiPlatform] != nil && detail[BangumiPlatform].(string) == BangumiPlatformMovie) {
@@ -564,7 +540,7 @@ func (b *BangumiAPIClient) ExtractSeasonNumber(name, nameCN string) int {
 				if num := numberConverter(m[1]); num != 0 {
 					return num
 				}
-				logger.Warn("%s: '%s', 默认设置为 %d.", LogMsgWarnChineseNumberNotFullySupported, m[1], DefaultSeasonNumber)
+				logger.Warn("无法识别的季号字符串 '%s', 默认设置为 %d.", m[1], DefaultSeasonNumber)
 				return DefaultSeasonNumber
 			}
 		}
