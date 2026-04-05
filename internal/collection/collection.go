@@ -3,9 +3,13 @@ package collection
 // Set 是一个泛型集合类型
 type Set[T comparable] map[T]struct{}
 
-// NewSet 创建一个新的空集合
-func NewSet[T comparable]() Set[T] {
-	return make(Set[T])
+// NewSet 创建一个新的集合
+func NewSet[T comparable](items ...T) Set[T] {
+	s := make(Set[T])
+	for _, item := range items {
+		s.Add(item)
+	}
+	return s
 }
 
 // Add 添加元素到集合
