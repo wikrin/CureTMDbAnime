@@ -55,7 +55,6 @@ func GetTVDetails(ginContext *gin.Context, tvService *service.TVService) {
 	tmdbIDStr := ginContext.Param("tmdb_id")
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil {
-		logger.Warn("无效的 TMDB ID: %v", err)
 		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的 TMDB ID 格式", err))
 		return
 	}

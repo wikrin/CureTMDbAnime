@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"curetmdbanime/internal/logger"
 	"curetmdbanime/internal/model"
 	"curetmdbanime/internal/processor"
 )
@@ -50,6 +51,8 @@ func GetSeriesMappings(ginContext *gin.Context) {
 			}
 			response[seasonKey][episodeKey] = target
 		}
+	} else {
+		logger.Debug("缓存映射未命中: tmdbID=%d", tmdbID)
 	}
 
 	ginContext.JSON(http.StatusOK, response)

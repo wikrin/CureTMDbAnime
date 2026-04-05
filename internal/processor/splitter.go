@@ -2,6 +2,7 @@ package processor
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -72,7 +73,7 @@ func (ss *SeasonSplitter) GetLogicSeries(tmdbID int, originalInfo map[string]any
 		}
 	}
 
-	logger.Debug("缓存未命中, 处理数据: cacheKey=%s", cacheKey)
+	logger.Debug("剧集逻辑缓存未命中: tmdbID=%d cacheKey=%s", tmdbID, cacheKey)
 	logic, err := ss.processTV(tmdbID, originalInfo, params)
 	if err != nil {
 		return nil, model.NewServiceError(http.StatusInternalServerError, "构建剧集逻辑失败", err)
@@ -227,6 +228,7 @@ func (ss *SeasonSplitter) processTV(tmdbID int, originalInfo map[string]any, par
 	}
 
 	if !seriesEntry.HasInconsistent(tvShow.SeasonsInfo()) {
+		logger.Info("剧集结构一致，无需构建: tmdbID=%d", tmdbID)
 		return nil, nil
 	}
 
@@ -500,11 +502,8 @@ func RemoveDuplicateEpisodes(seasons []map[string]any) []map[string]any {
 		originalEpisodeNumber := (*keeperSlotAugmentedEp.Episode)["episode_number"]
 		originalID := (*keeperSlotAugmentedEp.Episode)["id"]
 
-		// 复制 bestContentAugmentedEp 所有内容字段到 keeperSlotAugmentedEp 指向的实际剧集 map。
 		// 覆盖 keeperSlotAugmentedEp 内容
-		for k, v := range *bestContentAugmentedEp.Episode {
-			(*keeperSlotAugmentedEp.Episode)[k] = v
-		}
+		maps.Copy((*keeperSlotAugmentedEp.Episode), *bestContentAugmentedEp.Episode)
 
 		// 恢复 keeperSlotAugmentedEp 原始 season_number, episode_number, id 字段值
 		// 确保合并后剧集仍有正确原始位置信息
@@ -516,6 +515,7 @@ func RemoveDuplicateEpisodes(seasons []map[string]any) []map[string]any {
 		for _, ae := range group {
 			// 直接判断 augmentedEpisode 是否为保留槽位剧集
 			if ae != keeperSlotAugmentedEp {
+				logger.Debug("标记剧集S%dE%d为移除: %v", ae.OriginalSeasonIdx, ae.OriginalEpIdx, ae)
 				slotsToRemove[struct{ SeasonIdx, EpIdx int }{ae.OriginalSeasonIdx, ae.OriginalEpIdx}] = true
 			}
 		}

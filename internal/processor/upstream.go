@@ -43,8 +43,6 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 		fullURL += "?" + params.Encode()
 	}
 
-	logger.Debug("上游请求: url=%s", fullURL)
-
 	resp, err := u.httpClient.GetRes(context.Background(), fullURL, nil)
 	if resp == nil {
 		return nil, model.NewServiceError(http.StatusInternalServerError, "HTTP 响应为空", err)
@@ -70,6 +68,7 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 		return nil, &se
 	}
 
+	logger.Debug("UpstreamTMDB: %v", result)
 	return result, nil
 }
 

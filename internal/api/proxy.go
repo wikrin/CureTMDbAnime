@@ -32,8 +32,9 @@ const (
 
 // ProxyHandler 代理所有传入的客户端请求到配置的上游 TMDB URL
 func ProxyHandler(c *gin.Context) {
-	RequestURI := c.Request.RequestURI
-	upstreamURL := fmt.Sprintf("%s%s", config.AppSettings.TMDB_UPSTREAM_URL, RequestURI)
+	requestURI := c.Request.RequestURI
+	upstreamURL := fmt.Sprintf("%s%s", config.AppSettings.TMDB_UPSTREAM_URL, requestURI)
+	query := c.Request.URL.RawQuery
 
 	// 创建上游请求, 流式传输请求体
 	req, err := http.NewRequest(c.Request.Method, upstreamURL, c.Request.Body)
@@ -44,7 +45,7 @@ func ProxyHandler(c *gin.Context) {
 	}
 
 	// 复制查询参数
-	req.URL.RawQuery = c.Request.URL.RawQuery
+	req.URL.RawQuery = query
 
 	// 复制客户端请求头, 过滤 Content-Length, Transfer-Encoding 和 Host
 	req.Header = make(http.Header)
@@ -82,8 +83,9 @@ func ProxyHandler(c *gin.Context) {
 	c.Status(resp.StatusCode)
 
 	// 流式复制响应体
-	_, err = io.Copy(c.Writer, resp.Body)
+	written, err := io.Copy(c.Writer, resp.Body)
 	if err != nil {
-		logger.Error("%s: %v", ErrMsgCopyResponseBodyFailed, err)
+		logger.Error("%s: statusCode=%d bytes=%d err=%v", ErrMsgCopyResponseBodyFailed, resp.StatusCode, written, err)
+		return
 	}
 }
