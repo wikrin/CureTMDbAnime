@@ -3,10 +3,15 @@ FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
+ARG VERSION
+
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o ./bin/curetmdbanime ./main.go
+RUN go build -ldflags " \
+    -s -w \
+    -X curetmdbanime/internal/config.Version=${VERSION:-dev}" \
+    -o ./bin/curetmdbanime
 
 FROM alpine:latest
 

@@ -3,27 +3,29 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"curetmdbanime/internal/api"
+	"curetmdbanime/internal/cli"
 	"curetmdbanime/internal/config"
 	"curetmdbanime/internal/logger"
 )
 
-func init() {
-	if err := config.LoadConfig(); err != nil {
-		logger.Error("配置加载失败: %v", err)
+func main() {
+	if handled, err := cli.Execute(os.Args[1:], config.Version); err != nil {
+		logger.Fatal("CLI 参数解析失败: %v", err)
+	} else if handled {
 		return
 	}
-}
 
-func main() {
-	defer func() {
-		logger.Info("TMDB Cure Proxy 服务停止")
-	}()
+	if err := config.LoadConfig(); err != nil {
+		logger.Fatal("配置加载失败: %v", err)
+	}
+
+	defer logger.Info("TMDB Cure Proxy 服务停止")
 
 	router := api.SetupRouter()
-
 	addr := fmt.Sprintf("%s:%d", config.AppSettings.HOST, config.AppSettings.PORT)
 	server := &http.Server{
 		Addr:           addr,

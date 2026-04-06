@@ -63,7 +63,11 @@ jobs:
           BIN_DIR=./bin
           mkdir -p $BIN_DIR
           OUTPUT_NAME="curetmdbanime-${{ matrix.os }}-${{ matrix.arch }}"
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build -o $BIN_DIR/$OUTPUT_NAME .
+          VERSION="${{ needs.set-globals.outputs.release_tag }}"
+
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
+            -ldflags "-X curetmdbanime/internal/config.Version=${VERSION}" \
+            -o "${BIN_DIR}/${OUTPUT_NAME}" .
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v6
@@ -106,12 +110,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.set-globals.outputs.release_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # 发布任务，在 GitHub Release 发布时上传
   release:
-    needs: [set-globals, build, docker_build]
+    needs: [set-globals, build]
     runs-on: ubuntu-latest
     if: needs.set-globals.outputs.event_name == 'release' || needs.set-globals.outputs.event_name == 'workflow_dispatch'
     permissions:
