@@ -24,13 +24,11 @@ type Result struct {
 
 // 处理版本参数并解析配置类参数
 func Execute(args []string, version string) (Result, bool, error) {
-	controlFlags := pflag.NewFlagSet("curetmdbanime", pflag.ContinueOnError)
-	controlFlags.SetOutput(os.Stderr)
+	configFlags := NewConfigFlagSet()
+	showVersion := configFlags.BoolP("version", "v", false, "print version")
 
-	showVersion := controlFlags.BoolP("version", "v", false, "print version")
-
-	if err := controlFlags.Parse(args); err != nil {
-		return Result{}, true, err
+	if err := configFlags.Parse(args); err != nil {
+		return Result{}, false, err
 	}
 
 	if *showVersion {
@@ -43,11 +41,6 @@ func Execute(args []string, version string) (Result, bool, error) {
 		}
 
 		return Result{}, true, nil
-	}
-
-	configFlags := NewConfigFlagSet()
-	if err := configFlags.Parse(args); err != nil {
-		return Result{}, false, err
 	}
 
 	return Result{ConfigFlags: configFlags}, false, nil
