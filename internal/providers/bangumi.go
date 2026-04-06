@@ -447,7 +447,7 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 			logger.Warn("Bangumi ID %d 详情为空", sid)
 			continue
 		}else if detail[BangumiPlatform] != nil && ForbiddenBangumiPlatforms.Contains(detail[BangumiPlatform].(string)) {
-			logger.Info("%s ID=%d, %s 不符合 %s, 跳过处理", detail[BangumiNameCN], sid, detail[BangumiPlatform], ForbiddenBangumiPlatforms.ToSlice())
+			logger.Info("%s ID=%d, %s in %s, 跳过处理", detail[BangumiNameCN], sid, detail[BangumiPlatform], ForbiddenBangumiPlatforms.ToSlice())
 			continue
 		}
 
