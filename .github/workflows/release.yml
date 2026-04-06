@@ -65,9 +65,11 @@ jobs:
           OUTPUT_NAME="curetmdbanime-${{ matrix.os }}-${{ matrix.arch }}"
           VERSION="${{ needs.set-globals.outputs.release_tag }}"
 
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 go build \
-            -ldflags "-X curetmdbanime/internal/config.Version=${VERSION}" \
-            -o "${BIN_DIR}/${OUTPUT_NAME}" .
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 \
+          go build -ldflags " \
+          -s -w \
+          -X curetmdbanime/internal/config.Version=${VERSION}" \
+          -o "${BIN_DIR}/${OUTPUT_NAME}" .
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v6

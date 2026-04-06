@@ -11,7 +11,7 @@ COPY . .
 RUN go build -ldflags " \
     -s -w \
     -X curetmdbanime/internal/config.Version=${VERSION:-dev}" \
-    -o ./bin/curetmdbanime
+    -o ./bin/curetmdbanime .
 
 FROM alpine:latest
 

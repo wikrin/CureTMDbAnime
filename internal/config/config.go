@@ -16,7 +16,6 @@ const (
 	EnvKeyTmdbAPIURL = "TMDB_API_URL"
 	EnvKeyCureSource = "CURE_SOURCE"
 	EnvKeyProxy      = "PROXY"
-	EnvKeyUserAgent  = "USER_AGENT"
 	EnvKeyDataDir    = "DATA_DIR"
 )
 
@@ -58,6 +57,7 @@ var AppSettings Settings
 // 接收 CLI 层已解析的配置参数，优先级: Default < ENV < CLI
 func LoadConfig(flagSet *pflag.FlagSet) error {
 	cfg := viper.New()
+	cfg.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	cfg.SetDefault(configKeyHost, DefaultHost)
 	cfg.SetDefault(configKeyPort, DefaultPort)
@@ -73,13 +73,24 @@ func LoadConfig(flagSet *pflag.FlagSet) error {
 		}
 	}
 
-	bindEnv(cfg, configKeyHost, EnvKeyHost)
-	bindEnv(cfg, configKeyPort, EnvKeyPort)
-	bindEnv(cfg, configKeyDebug, EnvKeyDebug)
-	bindEnv(cfg, configKeyTmdbAPIURL, EnvKeyTmdbAPIURL)
-	bindEnv(cfg, configKeyCureSource, EnvKeyCureSource)
-	bindEnv(cfg, configKeyProxy, EnvKeyProxy)
-	bindEnv(cfg, configKeyDataDir, EnvKeyDataDir)
+	bindings := []struct {
+		key    string
+		envKey string
+	}{
+		{key: configKeyHost, envKey: EnvKeyHost},
+		{key: configKeyPort, envKey: EnvKeyPort},
+		{key: configKeyDebug, envKey: EnvKeyDebug},
+		{key: configKeyTmdbAPIURL, envKey: EnvKeyTmdbAPIURL},
+		{key: configKeyCureSource, envKey: EnvKeyCureSource},
+		{key: configKeyProxy, envKey: EnvKeyProxy},
+		{key: configKeyDataDir, envKey: EnvKeyDataDir},
+	}
+
+	for _, binding := range bindings {
+		if err := bindEnv(cfg, binding.key, binding.envKey); err != nil {
+			return err
+		}
+	}
 	cfg.AutomaticEnv()
 
 	AppSettings = Settings{
@@ -95,10 +106,10 @@ func LoadConfig(flagSet *pflag.FlagSet) error {
 	return nil
 }
 
-func bindEnv(cfg *viper.Viper, key, envKey string) {
+func bindEnv(cfg *viper.Viper, key, envKey string) error {
 	if err := cfg.BindEnv(key, envKey); err != nil {
-		panic(fmt.Sprintf("绑定环境变量失败: key=%s env=%s err=%v", key, envKey, err))
+		return fmt.Errorf("绑定环境变量失败: key=%s env=%s err=%w", key, envKey, err)
 	}
 
-	cfg.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	return nil
 }
