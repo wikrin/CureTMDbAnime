@@ -21,12 +21,12 @@ var (
 	once                 sync.Once
 )
 
-// UpstreamTMDB 负责与 TMDB API 交互
+// 负责与 TMDB API 交互
 type UpstreamTMDB struct {
 	httpClient *net.HTTPClientWrapper
 }
 
-// GetUpstreamTMDBInstance 返回 UpstreamTMDB 单例
+// 返回 UpstreamTMDB 单例
 func GetUpstreamTMDBInstance() *UpstreamTMDB {
 	once.Do(func() {
 		upstreamTMDBInstance = &UpstreamTMDB{
@@ -36,9 +36,9 @@ func GetUpstreamTMDBInstance() *UpstreamTMDB {
 	return upstreamTMDBInstance
 }
 
-// getTMDBData 从 TMDB API 获取数据并反序列化为 map
+// 从 TMDB API 获取数据并反序列化为 map
 func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]any, *model.ServiceError) {
-	fullURL := fmt.Sprintf("%s/3/%s", config.AppSettings.TMDB_UPSTREAM_URL, path)
+	fullURL := fmt.Sprintf("%s/3/%s", config.AppSettings.TmdbAPIURL, path)
 	if len(params) > 0 {
 		fullURL += "?" + params.Encode()
 	}
@@ -72,25 +72,25 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 	return result, nil
 }
 
-// GetTVDetail 获取指定 TMDB ID 电视剧详情
+// 获取指定 TMDB ID 电视剧详情
 func (u *UpstreamTMDB) GetTVDetail(tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("tv/%d", tmdbID)
 	return u.getTMDBData(path, params)
 }
 
-// GetSeasonDetail 获取指定 TMDB ID 电视剧的指定季度详情
+// 获取指定 TMDB ID 电视剧的指定季度详情
 func (u *UpstreamTMDB) GetSeasonDetail(tmdbID, seasonNumber int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("tv/%d/season/%d", tmdbID, seasonNumber)
 	return u.getTMDBData(path, params)
 }
 
-// GetEpisodeDetail 获取指定电视剧特定季度特定剧集详情
+// 获取指定电视剧特定季度特定剧集详情
 func (u *UpstreamTMDB) GetEpisodeDetail(tmdbID int, seasonNumber int, episodeNumber int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("tv/%d/season/%d/episode/%d", tmdbID, seasonNumber, episodeNumber)
 	return u.getTMDBData(path, params)
 }
 
-// GetMovieDetail 获取指定 TMDB ID 电影详情
+// 获取指定 TMDB ID 电影详情
 func (u *UpstreamTMDB) GetMovieDetail(tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("movie/%d", tmdbID)
 	result, err := u.getTMDBData(path, params)

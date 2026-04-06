@@ -30,10 +30,10 @@ const (
 	ErrMsgCopyResponseBodyFailed      = "复制响应体失败"
 )
 
-// ProxyHandler 代理所有传入的客户端请求到配置的上游 TMDB URL
+// 代理所有传入的客户端请求到配置的上游 TMDB URL
 func ProxyHandler(c *gin.Context) {
 	requestURI := c.Request.RequestURI
-	upstreamURL := fmt.Sprintf("%s%s", config.AppSettings.TMDB_UPSTREAM_URL, requestURI)
+	upstreamURL := fmt.Sprintf("%s%s", config.AppSettings.TmdbAPIURL, requestURI)
 	query := c.Request.URL.RawQuery
 
 	// 创建上游请求, 流式传输请求体

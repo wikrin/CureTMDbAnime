@@ -16,10 +16,10 @@ var (
 	globalAPIParams url.Values
 )
 
-// TestMain 用于在所有测试运行前加载配置文件、API 密钥并初始化全局服务
+// 用于在所有测试运行前加载配置文件、API 密钥并初始化全局服务
 func TestMain(m *testing.M) {
 	// 加载配置文件
-	config.LoadConfig()
+	config.LoadConfig(nil)
 
 	apiKey := os.Getenv("TMDB_API_KEY")
 	if apiKey == "" {

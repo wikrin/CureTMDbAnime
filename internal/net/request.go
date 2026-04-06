@@ -17,31 +17,31 @@ import (
 	"curetmdbanime/internal/model"
 )
 
-// HTTPClientWrapper 提供 HTTP 请求方法。
+// 提供 HTTP 请求方法
 type HTTPClientWrapper struct {
 	Client *http.Client // HTTP 客户端。
 }
 
-// 确保 HTTPClientWrapper 实例只创建一次。
+// 确保 HTTPClientWrapper 实例只创建一次
 var (
 	_clientWrapper *HTTPClientWrapper
 	_clientOnce    sync.Once
 )
 
-// GetHTTPClientWrapper 返回共享的 HTTPClientWrapper 单例。
-// 根据配置设置代理和请求超时。
+// 返回共享的 HTTPClientWrapper 单例
+// 根据配置设置代理和请求超时
 func GetHTTPClientWrapper() *HTTPClientWrapper {
 	_clientOnce.Do(func() {
 		transport := &http.Transport{
-			MaxIdleConns:          100,              // 最大空闲连接数。
-			IdleConnTimeout:       90 * time.Second, // 空闲连接超时。
-			TLSHandshakeTimeout:   10 * time.Second, // TLS 握手超时。
-			ExpectContinueTimeout: 1 * time.Second,  // Expect: 100-continue 头超时。
+			MaxIdleConns:          100,              // 最大空闲连接数
+			IdleConnTimeout:       90 * time.Second, // 空闲连接超时
+			TLSHandshakeTimeout:   10 * time.Second, // TLS 握手超时
+			ExpectContinueTimeout: 1 * time.Second,  // Expect: 100-continue 头超时
 		}
 
-		// 配置代理。
-		if config.AppSettings.PROXY != "" {
-			proxyURL, err := url.Parse(config.AppSettings.PROXY)
+		// 配置代理
+		if config.AppSettings.Proxy != "" {
+			proxyURL, err := url.Parse(config.AppSettings.Proxy)
 			if err != nil {
 				logger.Error("解析代理 URL 失败: %v", err)
 			} else {
@@ -59,7 +59,7 @@ func GetHTTPClientWrapper() *HTTPClientWrapper {
 	return _clientWrapper
 }
 
-// Request 发送 HTTP 请求。
+// 发送 HTTP 请求
 func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL string, headers map[string]string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, requestURL, bytes.NewBuffer(body))
 	if err != nil {
@@ -82,22 +82,22 @@ func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL stri
 // isRestrictedHeader 检查请求头是否受限。
 func isRestrictedHeader(header string) bool {
 	restricted := map[string]bool{
-		"host":             true, // 主机名。
-		"content-length":   true, // 内容长度。
-		"x-forwarded-host": true, // X-Forwarded-Host。
-		"referer":          true, // 引用页。
-		"origin":           true, // 源。
+		"host":             true, // 主机名
+		"content-length":   true, // 内容长度
+		"x-forwarded-host": true, // X-Forwarded-Host
+		"referer":          true, // 引用页
+		"origin":           true, // 源
 	}
 
 	return restricted[strings.ToLower(header)]
 }
 
-// GetRes 执行 GET 请求并返回响应。
+// 执行 GET 请求并返回响应
 func (h *HTTPClientWrapper) GetRes(ctx context.Context, requestURL string, headers map[string]string) (*http.Response, error) {
 	return h.Request(ctx, "GET", requestURL, headers, nil)
 }
 
-// ReadResponseBody 读取并返回响应体字节切片，完成后关闭响应体。
+// 读取并返回响应体字节切片，完成后关闭响应体
 func ReadResponseBody(resp *http.Response) ([]byte, error) {
 	if resp.Body == nil {
 		return nil, nil
@@ -110,19 +110,19 @@ func ReadResponseBody(resp *http.Response) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-// APIClient 封装 HTTP 请求和 JSON 处理逻辑。
+// 封装 HTTP 请求和 JSON 处理逻辑
 type APIClient struct {
 	HttpClient *HTTPClientWrapper
 }
 
-// NewAPIClient 创建并返回一个新的 APIClient 实例。
+// 创建并返回一个新的 APIClient 实例
 func NewAPIClient() *APIClient {
 	return &APIClient{
 		HttpClient: GetHTTPClientWrapper(),
 	}
 }
 
-// DoRequest 向指定 URL 发送 HTTP 请求并处理响应。
+// 向指定 URL 发送 HTTP 请求并处理响应。
 // 支持可选请求体和查询参数，返回原始响应体字节切片。
 //
 // 参数:
@@ -146,7 +146,7 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 	}
 
 	var reqBody io.Reader
-	// 存在请求体则 JSON 编码。
+	// 存在请求体则 JSON 编码
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
 		if err != nil {
@@ -159,7 +159,7 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 	if headers == nil {
 		headers = make(map[string]string)
 	}
-	// 默认 Content-Type 为 application/json。
+	// 默认 Content-Type 为 application/json
 	if _, ok := headers["Content-Type"]; !ok {
 		headers["Content-Type"] = "application/json"
 	}
@@ -168,7 +168,7 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 		if reqBody != nil {
 			buf := new(bytes.Buffer)
 			if _, err := buf.ReadFrom(reqBody); err != nil {
-				// 理论上 json.Marshal 成功后不会失败，记录此异常。
+				// 理论上 json.Marshal 成功后不会失败，记录此异常
 				logger.Error("从请求体读取数据到缓冲时发生意外错误: %v, 方法: %s, URL: %s", err, method, reqURL)
 				return nil
 			}
@@ -209,7 +209,7 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 	return bodyBytes, nil
 }
 
-// UnmarshalResponse 将字节切片解码为指定类型 T。
+// 将字节切片解码为指定类型 T。
 //
 // 参数:
 //

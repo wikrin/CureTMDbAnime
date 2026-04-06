@@ -31,7 +31,7 @@ var AppLogger *Logger
 
 func init() {
 	// 根据配置设置日志级别
-	if config.AppSettings.DEBUG {
+	if config.AppSettings.Debug {
 		currentLogLevel = LevelDebug
 	} else {
 		currentLogLevel = LevelInfo

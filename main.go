@@ -13,20 +13,22 @@ import (
 )
 
 func main() {
-	if handled, err := cli.Execute(os.Args[1:], config.Version); err != nil {
+	cliResult, handled, err := cli.Execute(os.Args[1:], config.Version)
+	if err != nil {
 		logger.Fatal("CLI 参数解析失败: %v", err)
-	} else if handled {
+	}
+	if handled {
 		return
 	}
 
-	if err := config.LoadConfig(); err != nil {
+	if err := config.LoadConfig(cliResult.ConfigFlags); err != nil {
 		logger.Fatal("配置加载失败: %v", err)
 	}
 
 	defer logger.Info("TMDB Cure Proxy 服务停止")
 
 	router := api.SetupRouter()
-	addr := fmt.Sprintf("%s:%d", config.AppSettings.HOST, config.AppSettings.PORT)
+	addr := fmt.Sprintf("%s:%d", config.AppSettings.Host, config.AppSettings.Port)
 	server := &http.Server{
 		Addr:           addr,
 		Handler:        router,
