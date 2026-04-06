@@ -14,6 +14,7 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
+	"curetmdbanime/internal/collection"
 	"curetmdbanime/internal/logger"
 	"curetmdbanime/internal/model"
 	"curetmdbanime/internal/net"
@@ -38,7 +39,6 @@ const (
 	BangumiResponseID       = "id"
 	BangumiRelationSequel   = "续集"
 	BangumiPlatform         = "platform"
-	BangumiPlatformTV       = "TV"
 	BangumiNameCN           = "name_cn"
 	BangumiName             = "name"
 	BangumiEpisodes         = "eps"
@@ -74,6 +74,8 @@ const (
 	RegexPatternEnglishOrdinalSeason = `([0-9]{1,2})(?:st|nd|rd|th)\s+season`
 	RegexPatternRomanSeason          = `(?i)(?:Season|S)\s*([IVXLCDM]+)`
 )
+
+var ForbiddenBangumiPlatforms = collection.NewSet("剧场版", "OVA")
 
 // numberConverter 将各种数字字符串转换为整数。
 func numberConverter(s string) int {
@@ -444,12 +446,12 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 		}else if detail == nil {
 			logger.Warn("Bangumi ID %d 详情为空", sid)
 			continue
-		}else if detail[BangumiPlatform] != nil && detail[BangumiPlatform].(string) != BangumiPlatformTV {
-			logger.Info("Bangumi ID %d, %s 不符合 %s, 跳过处理", sid, detail[BangumiPlatform], BangumiPlatformTV)
+		}else if detail[BangumiPlatform] != nil && ForbiddenBangumiPlatforms.Contains(detail[BangumiPlatform].(string)) {
+			logger.Info("%s ID=%d, %s 不符合 %s, 跳过处理", detail[BangumiNameCN], sid, detail[BangumiPlatform], ForbiddenBangumiPlatforms.ToSlice())
 			continue
 		}
 
-		logger.Debug("处理条目[%d]: %s",sid, detail)
+		logger.Debug("处理条目[%d]: %s",detail[BangumiNameCN], detail)
 		nameCN := ""
 		if nc, ok := detail[BangumiNameCN].(string); ok {
 			nameCN = nc
@@ -540,12 +542,14 @@ func (b *BangumiAPIClient) ExtractSeasonNumber(name, nameCN string) int {
 		}
 		patterns := b.seasonNumberRegexes
 		for _, re := range patterns {
+			logger.Debug("尝试匹配: %s Pattern=`%s`", text, re.String())
 			m := re.FindStringSubmatch(text)
 			if len(m) > 1 {
 				if num := numberConverter(m[1]); num != 0 {
+					logger.Info("%s 通过 Pattern=`%s` 匹配成功 Season=%d", text, re.String(), num)
 					return num
 				}
-				logger.Warn("无法识别的季号字符串 '%s', 默认设置为 %d.", m[1], DefaultSeasonNumber)
+				logger.Warn("匹配成功但转换失败: Pattern=`%s`, Captured=`%s`, Text=`%s`", re.String(), m[1], text)
 				return DefaultSeasonNumber
 			}
 		}
