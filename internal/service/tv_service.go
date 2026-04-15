@@ -86,16 +86,13 @@ func (s *TVService) applyTVLogicAndTransform(tmdbID int, originalTVShowData map[
 
 	// 如果存在自定义逻辑，则应用
 	if logicSeriesData != nil {
-		name := *tvShow.Name
-		if logicSeriesData.Name != nil {
-			name = *logicSeriesData.Name
-		}
-		logger.Info("剧集信息已重写: TMDB ID=%d, 剧集名称=%s", tmdbID, name)
-		s.remapTVDetailEpisodeReferences(tvShow.Other, logicSeriesData.OrgMap())
-
+		logger.Info("开始重写剧集信息: TMDB ID=%d, 剧集名称=%s", tmdbID, *tvShow.Name)
 		if logicSeriesData.Name != nil {
 			tvShow.Name = logicSeriesData.Name
+			logger.Info("剧集名称已重写为: %s", *logicSeriesData.Name)
 		}
+
+		s.remapTVDetailEpisodeReferences(tvShow.Other, logicSeriesData.OrgMap())
 
 		mergedSeasons := []model.Season{}
 		season0 := s.findSeasonByNumber(tvShow.Seasons, 0)
@@ -114,6 +111,7 @@ func (s *TVService) applyTVLogicAndTransform(tmdbID int, originalTVShowData map[
 				SeasonNumber: logicSeason.SeasonNumber,
 				VoteAverage:  logicSeason.VoteAverage,
 			}
+			logger.Info("季 %d 总集数=%d, 首播日期=%s", newSeason.SeasonNumber, *newSeason.EpisodeCount, *newSeason.AirDate)
 			mergedSeasons = append(mergedSeasons, newSeason)
 		}
 
