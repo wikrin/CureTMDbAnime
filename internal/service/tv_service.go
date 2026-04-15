@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	"curetmdbanime/internal/collection"
 	"curetmdbanime/internal/logger"
 	"curetmdbanime/internal/model"
 	"curetmdbanime/internal/processor"
@@ -90,6 +91,7 @@ func (s *TVService) applyTVLogicAndTransform(tmdbID int, originalTVShowData map[
 			name = *logicSeriesData.Name
 		}
 		logger.Info("剧集信息已重写: TMDB ID=%d, 剧集名称=%s", tmdbID, name)
+		s.remapTVDetailEpisodeReferences(tvShow.Other, logicSeriesData.OrgMap())
 
 		if logicSeriesData.Name != nil {
 			tvShow.Name = logicSeriesData.Name
@@ -333,7 +335,57 @@ func (s *TVService) getUpstreamEpisodeDetail(tmdbID int, seasonNumber int, episo
 	return &episode, nil
 }
 
-// findSeasonByNumber 在 Season 切片中按季号查找季。
+// 重映射电视剧详情中的剧集引用字段
+// 根据自定义逻辑映射表，更新季号和集号
+func (s *TVService) remapTVDetailEpisodeReferences(other map[string]any, orgMap map[model.IntPair]model.IntPair) {
+	if len(other) == 0 || len(orgMap) == 0 {
+		return
+	}
+
+	// 定义需要重映射的字段列表
+	fieldsToRemap := []string{
+		"last_episode_to_air",
+		"next_episode_to_air",
+	}
+
+	for _, field := range fieldsToRemap {
+		remapSingleEpisodeField(other, field, orgMap)
+	}
+}
+
+// 重映射单个剧集引用字段
+// 如果字段存在且其原始季号/集号在映射表中，则更新为逻辑季号/集号
+// 返回是否成功进行了重映射
+func remapSingleEpisodeField(other map[string]any, key string, orgMap map[model.IntPair]model.IntPair) bool {
+	rawEpisode, exists := other[key]
+	if !exists {
+		logger.Debug("字段 %s 不存在", key)
+		return false
+	}
+
+	episodeMap, ok := rawEpisode.(map[string]any)
+	if !ok {
+		logger.Debug("%s 字段类型异常，期望 map[string]any，实际=%T", key, rawEpisode)
+		return false
+	}
+
+	seasonNumber := collection.GetInt(episodeMap, "season_number")
+	episodeNumber := collection.GetInt(episodeMap, "episode_number")
+	if seasonNumber < 0 || episodeNumber < 0 {
+		return false
+	}
+
+	if mapped, found := orgMap[model.IntPair{Season: seasonNumber, Episode: episodeNumber}]; found {
+		episodeMap["season_number"] = mapped.Season
+		episodeMap["episode_number"] = mapped.Episode
+		logger.Info("重映射剧集引用字段 `%s` S%02dE%02d -> S%02dE%02d", key, seasonNumber, episodeNumber, mapped.Season, mapped.Episode)
+		return true
+	}
+
+	return false
+}
+
+// 在 Season 切片中按季号查找季
 func (s *TVService) findSeasonByNumber(seasons []model.Season, number int) *model.Season {
 	for i := range seasons {
 		if seasons[i].SeasonNumber == number {
