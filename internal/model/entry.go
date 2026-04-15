@@ -7,7 +7,7 @@ import (
 	"curetmdbanime/internal/collection"
 )
 
-// IncludeEntry 表示一个包含条目
+// 表示一个包含条目
 type IncludeEntry struct {
 	Order         int    `mapstructure:"order"`                    // 集
 	EpisodeNumber *int   `mapstructure:"episode_number,omitempty"` // 原集号
@@ -47,7 +47,7 @@ type SeasonEntry struct {
 	Include      []*IncludeEntry `mapstructure:"include,omitempty"` // 包含的剧集范围
 }
 
-// HasSpecialSeason 检查该季条目的 Include 列表中是否包含特殊季（第0季）的条目
+// 检查该季条目的 Include 列表中是否包含特殊季（第0季）的条目
 func (se *SeasonEntry) HasSpecialSeason() bool {
 	if se.Include == nil {
 		return false
@@ -136,7 +136,7 @@ func (se *SeasonEntry) MissingEpisodes() []int {
 	return missing // 没有多余剧集, 直接返回缺失剧集列表
 }
 
-// SeriesEntry 表示一个系列条目信息
+// 表示一个系列条目信息
 type SeriesEntry struct {
 	Name    *string        `mapstructure:"name,omitempty"` // 系列名称
 	Seasons []*SeasonEntry `mapstructure:"seasons"`        // 包含的季列表
@@ -156,7 +156,7 @@ func (t *SeriesEntry) Decode(data map[string]any) error {
 	return nil
 }
 
-// HasAnySpecialSeason 检查该系列中任意季的 Include 列表是否包含特殊季（第0季）的条目
+// 检查该系列中任意季的 Include 列表是否包含特殊季（第0季）的条目
 func (se *SeriesEntry) HasAnySpecialSeason() bool {
 	if se.Seasons == nil {
 		return false

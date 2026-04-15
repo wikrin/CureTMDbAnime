@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// SetupRouter 初始化 Gin 引擎并注册所有路由
+// 初始化 Gin 引擎并注册所有路由
 func SetupRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 

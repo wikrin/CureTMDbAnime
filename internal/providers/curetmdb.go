@@ -28,7 +28,7 @@ const (
 	cureTMDbCacheTTL = 2 * time.Hour
 )
 
-// CureTMDb 结构体
+// 结构体
 type CureTMDb struct {
 	sourceURL     string
 	localFilePath string
@@ -50,7 +50,7 @@ func NewCureTMDb() *CureTMDb {
 	// 使用配置的数据目录和文件名
 	localPath := filepath.Join(config.AppSettings.DataDir, "curetmdb.json")
 	var sourceURL string
-	// 检查配置的源 URL。
+	// 检查配置的源 URL
 	if len(source) > 0 && (source[0:4] == "http" || source[0:5] == "https") {
 		sourceURL = source
 	}

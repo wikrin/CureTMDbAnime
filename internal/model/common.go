@@ -13,7 +13,7 @@ type IntPair struct {
 	Episode int `json:"episode"`
 }
 
-// decodeWithMapstructure 使用 mapstructure 解码 map[string]any 到目标结构体
+// 使用 mapstructure 解码 map[string]any 到目标结构体
 func decodeWithMapstructure(rawData map[string]any, result any) error {
 	err := mapstructure.Decode(rawData, &result)
 	if err != nil {
@@ -22,7 +22,7 @@ func decodeWithMapstructure(rawData map[string]any, result any) error {
 	return nil
 }
 
-// mergeAndMarshal 合并已知字段和额外数据, 然后编码为 JSON
+// 合并已知字段和额外数据, 然后编码为 JSON
 func mergeAndMarshal(alias any, other map[string]any) ([]byte, error) {
 	// 初步编码已知字段
 	knownFieldsBytes, err := json.Marshal(alias)

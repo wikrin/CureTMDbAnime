@@ -41,7 +41,7 @@ func GetSeasonSplitterInstance() *SeasonSplitter {
 	return seasonSplitterInstance
 }
 
-// SeasonSplitter 处理剧集季分割逻辑
+// 处理剧集季分割逻辑
 type SeasonSplitter struct {
 	cureTMDb     *providers.CureTMDb
 	bangumiAPI   *providers.BangumiAPIClient
@@ -49,7 +49,7 @@ type SeasonSplitter struct {
 	logicCache   *cache.Cache
 }
 
-// augmentedEpisode 结构，去重时追踪剧集信息及其在可修改结构中的引用
+// 结构，去重时追踪剧集信息及其在可修改结构中的引用
 type augmentedEpisode struct {
 	Episode           *map[string]any // 剧集数据
 	OriginalSeasonIdx int             // 原始 seasons 列表索引
@@ -403,8 +403,8 @@ func completenessScore(episode map[string]any) int {
 
 // 根据播出日期和季度号去重，保留最完整剧集并保持顺序
 func RemoveDuplicateEpisodes(seasons []map[string]any) []map[string]any {
-	// episodesByAirDate: 按 air_date 分组所有剧集，每个 air_date 对应 augmentedEpisode 列表。
-	// augmentedEpisode 包含指向 seasons 中实际剧集 map 的指针。
+	// episodesByAirDate: 按 air_date 分组所有剧集，每个 air_date 对应 augmentedEpisode 列表
+	// augmentedEpisode 包含指向 seasons 中实际剧集 map 的指针
 	episodesByAirDate := make(map[string][]*augmentedEpisode)
 
 	// 按 air_date 分组，填充 augmentedEpisode 结构
@@ -571,13 +571,13 @@ func getEpisodesAsMapSlice(episodesField any) []map[string]any {
 			if epMap, ok := ep.(map[string]any); ok {
 				result = append(result, epMap)
 			}
-			// 如果 []any 中有非 map[string]any 的元素，这里会跳过。
-			// 根据实际需求，也可以在此处记录日志或返回错误。
+			// 如果 []any 中有非 map[string]any 的元素，这里会跳过
+			// 根据实际需求，也可以在此处记录日志或返回错误
 		}
 		return result
 	}
 
-	// 如果都不是期望的切片类型，返回 nil。
+	// 如果都不是期望的切片类型，返回 nil
 	return nil
 }
 

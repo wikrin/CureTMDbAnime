@@ -8,7 +8,7 @@ import (
 	"curetmdbanime/internal/collection"
 )
 
-// LogicSeries 业务逻辑处理后的系列数据结构
+// 业务逻辑处理后的系列数据结构
 type LogicSeries struct {
 	Name        *string        `json:"name,omitempty"`        // 系列名称
 	Seasons     []*LogicSeason `json:"seasons"`               // 逻辑季列表
@@ -29,7 +29,7 @@ func (ls *LogicSeries) OrgMap() map[IntPair]IntPair {
 	return result
 }
 
-// AddSeason 向 LogicSeries 添加一个 LogicSeason
+// 向 LogicSeries 添加一个 LogicSeason
 func (ls *LogicSeries) AddSeason(name *string, airDate *string,
 	seasonNumber int, episodesMap map[int]*EpisodeMap, kwargs map[string]any) {
 	newSeason := &LogicSeason{
@@ -61,7 +61,7 @@ func (ls *LogicSeries) AddSeason(name *string, airDate *string,
 	ls.Seasons = append(ls.Seasons, newSeason) // 添加新季
 }
 
-// SeasonInfo 根据季编号返回 LogicSeason
+// 根据季编号返回 LogicSeason
 func (ls *LogicSeries) SeasonInfo(seasonNumber int) *LogicSeason {
 	for _, season := range ls.Seasons {
 		if season.SeasonNumber == seasonNumber {
@@ -71,7 +71,7 @@ func (ls *LogicSeries) SeasonInfo(seasonNumber int) *LogicSeason {
 	return nil
 }
 
-// LogicSeason 业务逻辑处理后的季数据结构
+// 业务逻辑处理后的季数据结构
 type LogicSeason struct {
 	Name         *string             `json:"name,omitempty"`         // 季名称
 	AirDate      *string             `json:"air_date,omitempty"`     // 上映日期
@@ -82,7 +82,7 @@ type LogicSeason struct {
 	Overview     *string             `json:"overview,omitempty"`     // 概述
 }
 
-// EpisodeCount 返回该季包含的剧集数量
+// 返回该季包含的剧集数量
 func (ls *LogicSeason) EpisodeCount() *int {
 	count := len(ls.EpisodesMap)
 	return &count
@@ -110,7 +110,7 @@ func (ls *LogicSeason) OrgMap() map[IntPair]IntPair {
 	return result
 }
 
-// UniqueEntry 返回唯一的 EpisodeMap 列表 (基于 season_number, type, tmdbid 去重)
+// 返回唯一的 EpisodeMap 列表 (基于 season_number, type, tmdbid 去重)
 func (ls *LogicSeason) UniqueEntry() []*EpisodeMap {
 	if len(ls.EpisodesMap) == 0 {
 		return []*EpisodeMap{}
@@ -142,7 +142,7 @@ func (ls *LogicSeason) UniqueEntry() []*EpisodeMap {
 	return result
 }
 
-// OrgSeasons 返回一个已排序的原始季编号列表
+// 返回一个已排序的原始季编号列表
 func (ls *LogicSeason) OrgSeasons() []int {
 	seen := collection.NewSet[int]() // 记录已见过的季编号
 	var seasons []int                // 存储提取到的季编号
@@ -159,7 +159,7 @@ func (ls *LogicSeason) OrgSeasons() []int {
 	return seasons
 }
 
-// EpisodeMap 剧集映射信息
+// 剧集映射信息
 type EpisodeMap struct {
 	Order         int    `json:"order"`                    // 剧集顺序
 	EpisodeNumber *int   `json:"episode_number,omitempty"` // 原始集号
@@ -187,7 +187,7 @@ func (em *EpisodeMap) EpisodeNum() int {
 	return 0 // 默认值
 }
 
-// MappingKey 返回 EpisodeMap 的唯一映射键
+// 返回 EpisodeMap 的唯一映射键
 func (em *EpisodeMap) MappingKey() IntPair {
 	return IntPair{em.SeasonNum(), em.EpisodeNum()}
 }

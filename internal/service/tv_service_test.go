@@ -26,7 +26,6 @@ func TestMain(m *testing.M) {
 		// 如果未设置 API 密钥，则所有集成测试将被跳过
 		// 在 CI/CD 环境中，通常会设置此变量
 		// 或者在本地运行测试时设置 TMDB_API_KEY=YOUR_API_KEY
-		// 更多信息请参阅 README。
 		os.Stderr.WriteString("警告: TMDB_API_KEY 环境变量未设置。跳过集成测试。\n")
 		// 将 globalAPIParams 设置为 nil，以便测试函数可以通过检查它来跳过
 		globalAPIParams = nil

@@ -1,9 +1,9 @@
 package collection
 
-// Set 是一个泛型集合类型
+// 是一个泛型集合类型
 type Set[T comparable] map[T]struct{}
 
-// NewSet 创建一个新的集合
+// 创建一个新的集合
 func NewSet[T comparable](items ...T) Set[T] {
 	s := make(Set[T])
 	for _, item := range items {
@@ -12,18 +12,18 @@ func NewSet[T comparable](items ...T) Set[T] {
 	return s
 }
 
-// Add 添加元素到集合
+// 添加元素到集合
 func (s Set[T]) Add(item T) {
 	s[item] = struct{}{}
 }
 
-// Contains 检查元素是否在集合中
+// 检查元素是否在集合中
 func (s Set[T]) Contains(item T) bool {
 	_, exists := s[item]
 	return exists
 }
 
-// Union 返回两个集合的并集
+// 返回两个集合的并集
 func (s Set[T]) Union(other Set[T]) Set[T] {
 	result := NewSet[T]()
 	for item := range s {
@@ -35,7 +35,7 @@ func (s Set[T]) Union(other Set[T]) Set[T] {
 	return result
 }
 
-// Intersection 返回两个集合的交集
+// 返回两个集合的交集
 func (s Set[T]) Intersection(other Set[T]) Set[T] {
 	result := NewSet[T]()
 	for item := range s {
@@ -46,7 +46,7 @@ func (s Set[T]) Intersection(other Set[T]) Set[T] {
 	return result
 }
 
-// Difference 返回两个集合的差集（s - other）
+// 返回两个集合的差集（s - other）
 func (s Set[T]) Difference(other Set[T]) Set[T] {
 	result := NewSet[T]()
 	for item := range s {
@@ -57,7 +57,7 @@ func (s Set[T]) Difference(other Set[T]) Set[T] {
 	return result
 }
 
-// IsSubset 检查是否为子集
+// 检查是否为子集
 func (s Set[T]) IsSubset(other Set[T]) bool {
 	for item := range s {
 		if !other.Contains(item) {
@@ -67,7 +67,7 @@ func (s Set[T]) IsSubset(other Set[T]) bool {
 	return true
 }
 
-// ToSlice 将集合转换为切片
+// 将集合转换为切片
 func (s Set[T]) ToSlice() []T {
 	result := make([]T, 0, len(s))
 	for item := range s {
@@ -76,7 +76,7 @@ func (s Set[T]) ToSlice() []T {
 	return result
 }
 
-// RenameKeysInPlace 原地重命名 Map 的键
+// 原地重命名 Map 的键
 func RenameKeysInPlace(m map[string]any, renames map[string]string) {
 	for oldKey, newKey := range renames {
 		if val, exists := m[oldKey]; exists {

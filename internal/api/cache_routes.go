@@ -24,14 +24,14 @@ func GetLogic(tmdbID int) *model.LogicSeries {
 	return nil
 }
 
-// RegisterCacheRoutes 注册缓存 API 路由
+// 注册缓存 API 路由
 func RegisterCacheRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("/mapping/:tmdb_id", func(ginContext *gin.Context) {
 		GetSeriesMappings(ginContext)
 	})
 }
 
-// GetSeriesMappings 获取指定 TMDB ID 的整剧集数映射
+// 获取指定 TMDB ID 的整剧集数映射
 func GetSeriesMappings(ginContext *gin.Context) {
 	tmdbIDStr := ginContext.Param("tmdb_id")
 

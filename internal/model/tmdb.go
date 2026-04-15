@@ -77,7 +77,7 @@ func (s Season) MarshalJSON() ([]byte, error) { // 修改接收器类型
 	return mergeAndMarshal(temp, s.Other)
 }
 
-// TMDb API 中的电视节目信息.
+// TMDb API 中的电视节目信息
 type TVShow struct {
 	ID               int              `json:"id" mapstructure:"id"`                                             // 唯一标识符
 	Name             *string          `json:"name,omitempty" mapstructure:"name,omitempty"`                     // 节目名称

@@ -12,12 +12,12 @@ import (
 	"curetmdbanime/internal/service"
 )
 
-// createTVService 创建并返回 TVService 实例
+// 创建并返回 TVService 实例
 func createTVService() *service.TVService {
 	return service.NewTVService()
 }
 
-// handleError 处理 ServiceError 并发送 JSON 错误响应
+// 处理 ServiceError 并发送 JSON 错误响应
 func handleError(ginContext *gin.Context, serviceErr *model.ServiceError) {
 	if serviceErr == nil {
 		return // 没有错误, 不处理
@@ -34,7 +34,7 @@ func handleError(ginContext *gin.Context, serviceErr *model.ServiceError) {
 	ginContext.JSON(statusCode, errorResponse)
 }
 
-// RegisterTVRoutes 注册 TV API 路由
+// 注册 TV API 路由
 func RegisterTVRoutes(routerGroup *gin.RouterGroup) {
 	// 获取特定剧集详情
 	routerGroup.GET("/:tmdb_id", func(ginContext *gin.Context) {
@@ -50,7 +50,7 @@ func RegisterTVRoutes(routerGroup *gin.RouterGroup) {
 	})
 }
 
-// GetTVDetails 获取指定 TMDB ID 的 TV 详情
+// 获取指定 TMDB ID 的 TV 详情
 func GetTVDetails(ginContext *gin.Context, tvService *service.TVService) {
 	tmdbIDStr := ginContext.Param("tmdb_id")
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
@@ -74,7 +74,7 @@ func GetTVDetails(ginContext *gin.Context, tvService *service.TVService) {
 	ginContext.JSON(http.StatusOK, tvDetails)
 }
 
-// GetSeasonDetails 获取指定 TMDB ID 和季度的详情
+// 获取指定 TMDB ID 和季度的详情
 func GetSeasonDetails(ginContext *gin.Context, tvService *service.TVService) {
 	tmdbIDStr := ginContext.Param("tmdb_id")
 	seasonNumberStr := ginContext.Param("season_number")
@@ -105,7 +105,7 @@ func GetSeasonDetails(ginContext *gin.Context, tvService *service.TVService) {
 	ginContext.JSON(http.StatusOK, seasonDetails)
 }
 
-// GetEpisodeDetails 获取指定 TMDB ID、季度和剧集的详情
+// 获取指定 TMDB ID、季度和剧集的详情
 func GetEpisodeDetails(ginContext *gin.Context, tvService *service.TVService) {
 	tmdbIDStr := ginContext.Param("tmdb_id")
 	seasonNumberStr := ginContext.Param("season_number")

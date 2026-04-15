@@ -79,7 +79,7 @@ func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL stri
 	return resp, nil
 }
 
-// isRestrictedHeader 检查请求头是否受限。
+// 检查请求头是否受限
 func isRestrictedHeader(header string) bool {
 	restricted := map[string]bool{
 		"host":             true, // 主机名
@@ -122,23 +122,23 @@ func NewAPIClient() *APIClient {
 	}
 }
 
-// 向指定 URL 发送 HTTP 请求并处理响应。
-// 支持可选请求体和查询参数，返回原始响应体字节切片。
+// 向指定 URL 发送 HTTP 请求并处理响应
+// 支持可选请求体和查询参数，返回原始响应体字节切片
 //
 // 参数:
 //
-//	ctx context.Context: 请求上下文，用于超时和取消。
-//	method string: HTTP 请求方法 (例如 "GET", "POST")。
-//	baseURL string: 请求基本 URL。
-//	endpoint string: API 端点，与 baseURL 拼接。
-//	body any: 可选请求体，非 nil 则 JSON 编码。
-//	params url.Values: 可选 URL 查询参数。
-//	headers map[string]string: 可选请求头。
+//	ctx context.Context: 请求上下文，用于超时和取消
+//	method string: HTTP 请求方法 (例如 "GET", "POST")
+//	baseURL string: 请求基本 URL
+//	endpoint string: API 端点，与 baseURL 拼接
+//	body any: 可选请求体，非 nil 则 JSON 编码
+//	params url.Values: 可选 URL 查询参数
+//	headers map[string]string: 可选请求头
 //
 // 返回:
 //
-//	[]byte: 成功时，返回原始响应体字节切片。
-//	error: 请求失败、响应状态码非 200 或读取响应体失败时返回错误。
+//	[]byte: 成功时，返回原始响应体字节切片
+//	error: 请求失败、响应状态码非 200 或读取响应体失败时返回错误
 func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint string, body any, params url.Values, headers map[string]string) ([]byte, error) {
 	reqURL := baseURL + endpoint
 	if params != nil {
@@ -209,16 +209,16 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 	return bodyBytes, nil
 }
 
-// 将字节切片解码为指定类型 T。
+// 将字节切片解码为指定类型 T
 //
 // 参数:
 //
-//	bodyBytes []byte: 包含 JSON 响应的字节切片。
+//	bodyBytes []byte: 包含 JSON 响应的字节切片
 //
 // 返回:
 //
-//	T: 解码后的数据。
-//	error: JSON 解码失败时返回错误。
+//	T: 解码后的数据
+//	error: JSON 解码失败时返回错误
 func UnmarshalResponse[T any](bodyBytes []byte) (T, error) {
 	var typedResult T
 	if err := json.Unmarshal(bodyBytes, &typedResult); err != nil {

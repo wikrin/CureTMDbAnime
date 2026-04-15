@@ -77,7 +77,7 @@ const (
 
 var ForbiddenBangumiPlatforms = collection.NewSet("剧场版", "OVA")
 
-// numberConverter 将各种数字字符串转换为整数。
+// 将各种数字字符串转换为整数
 func numberConverter(s string) int {
 	if num, err := strconv.Atoi(s); err == nil {
 		return num
@@ -162,7 +162,7 @@ var (
 	bangumiClientOnce     sync.Once
 )
 
-// GetBangumiAPIClient 获取 Bangumi API 客户端的单例实例。
+// 获取 Bangumi API 客户端的单例实例
 func GetBangumiAPIClient() *BangumiAPIClient {
 	bangumiClientOnce.Do(func() {
 		bangumiClientInstance = NewBangumiAPIClient()
@@ -170,7 +170,7 @@ func GetBangumiAPIClient() *BangumiAPIClient {
 	return bangumiClientInstance
 }
 
-// BangumiAPIClient 提供了与 Bangumi API 交互的方法。
+// 提供了与 Bangumi API 交互的方法
 type BangumiAPIClient struct {
 	apiClient           *net.APIClient
 	cache               *cache.Cache
@@ -179,7 +179,7 @@ type BangumiAPIClient struct {
 	seasonNumberRegexes []*regexp.Regexp
 }
 
-// NewBangumiAPIClient 创建一个新的 BangumiAPIClient 实例。
+// 创建一个新的 BangumiAPIClient 实例
 func NewBangumiAPIClient() *BangumiAPIClient {
 	return &BangumiAPIClient{
 		apiClient: net.NewAPIClient(),
@@ -200,7 +200,7 @@ func NewBangumiAPIClient() *BangumiAPIClient {
 	}
 }
 
-// invoke 向 Bangumi API 发送请求。
+// 向 Bangumi API 发送请求
 func (b *BangumiAPIClient) invoke(method, endpoint string, body any, params url.Values) (any, error) {
 	cacheKeyBuilder := strings.Builder{}
 	cacheKeyBuilder.WriteString(method)
@@ -239,7 +239,7 @@ func (b *BangumiAPIClient) invoke(method, endpoint string, body any, params url.
 	return result, nil
 }
 
-// Search 在 Bangumi 上搜索条目。
+// 在 Bangumi 上搜索条目
 func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]any, error) {
 	if title == "" || airDate == nil || *airDate == "" {
 		return nil, nil
@@ -297,7 +297,7 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 	return results, nil
 }
 
-// Detail 获取条目的详细信息。
+// 获取条目的详细信息
 func (b *BangumiAPIClient) Detail(bid int) (map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["detail"], bid)
 	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
@@ -315,7 +315,7 @@ func (b *BangumiAPIClient) Detail(bid int) (map[string]any, error) {
 	return detailMap, nil
 }
 
-// Subjects 获取相关条目。
+// 获取相关条目
 func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["subjects"], bid)
 	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
@@ -353,7 +353,7 @@ func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
 	return results, nil
 }
 
-// Episodes 获取条目的剧集列表。
+// 获取条目的剧集列表
 func (b *BangumiAPIClient) Episodes(bid int) ([]map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["episodes"], bid)
 	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
@@ -385,7 +385,7 @@ func (b *BangumiAPIClient) Episodes(bid int) ([]map[string]any, error) {
 	return results, nil
 }
 
-// GetAllSequels 递归获取所有续集条目 ID。
+// 递归获取所有续集条目 ID
 func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
 	result := make(map[int]struct{})
 	var sequence []int
@@ -420,7 +420,7 @@ func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
 	return sequence, nil
 }
 
-// SeasonInfo 处理 Bangumi 条目以创建 SeriesEntry。
+// 处理 Bangumi 条目以创建 SeriesEntry
 func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, error) {
 	if item == nil {
 		return nil, nil
@@ -514,7 +514,7 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 	return &model.SeriesEntry{Seasons: seasons}, nil
 }
 
-// IsFirstEpisodeSequential 判断首集的 sort 和 ep 值是否相等。
+// 判断首集的 sort 和 ep 值是否相等
 func (b *BangumiAPIClient) IsFirstEpisodeSequential(sid int) (bool, error) {
 	episodes, err := b.Episodes(sid)
 	if err != nil {
@@ -534,7 +534,7 @@ func (b *BangumiAPIClient) IsFirstEpisodeSequential(sid int) (bool, error) {
 	return int(sortData) == int(epData), nil
 }
 
-// ExtractSeasonNumber 从名称中提取季度号。
+// 从名称中提取季度号
 func (b *BangumiAPIClient) ExtractSeasonNumber(name, nameCN string) int {
 	parse := func(text string) int {
 		if text == "" {

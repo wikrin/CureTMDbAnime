@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// ErrorResponse 定义统一的错误响应结构
+// 定义统一的错误响应结构
 type ErrorResponse struct {
 	Success       bool   `json:"success"`        // 是否成功
 	StatusCode    int    `json:"status_code"`    // 错误码
 	StatusMessage string `json:"status_message"` // 错误信息
 }
 
-// NewErrorResponse 创建 ErrorResponse 实例
+// 创建 ErrorResponse 实例
 func NewErrorResponse(success bool, code int, message string) ErrorResponse {
 	return ErrorResponse{
 		Success:       success,
@@ -21,7 +21,7 @@ func NewErrorResponse(success bool, code int, message string) ErrorResponse {
 	}
 }
 
-// ServiceError 定义服务层错误结构体
+// 定义服务层错误结构体
 type ServiceError struct {
 	Code       int    `json:"code" mapstructure:"code"`                       // 响应状态码
 	StatusCode int    `json:"status_code" mapstructure:"status_code"`         // tmdb API 响应码
@@ -37,7 +37,7 @@ func (t *ServiceError) Decode(data map[string]any) error {
 	return nil
 }
 
-// NewServiceError 创建 ServiceError 实例
+// 创建 ServiceError 实例
 func NewServiceError(code int, message string, err error) *ServiceError {
 	return &ServiceError{
 		Code:    code,
@@ -46,7 +46,7 @@ func NewServiceError(code int, message string, err error) *ServiceError {
 	}
 }
 
-// Error 实现 error 接口，提供错误字符串表示
+// 实现 error 接口，提供错误字符串表示
 func (se *ServiceError) Error() string {
 	if se == nil {
 		return "<nil>"
@@ -65,7 +65,7 @@ func (se *ServiceError) Error() string {
 	return strings.Join(parts, ", ")
 }
 
-// Unwrap 返回原始错误
+// 返回原始错误
 func (se *ServiceError) Unwrap() error {
 	return se.Err
 }
