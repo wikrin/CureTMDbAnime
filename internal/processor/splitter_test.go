@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"curetmdbanime/internal/collection"
+	"curetmdbanime/internal/model"
 )
 
 func TestRemoveDuplicateEpisodes(t *testing.T) {
@@ -50,4 +51,96 @@ func TestRemoveDuplicateEpisodes(t *testing.T) {
 		assert.True(t, foundEp5AirDate, "应找到日期为 2026-02-13 的剧集")
 	})
 
+}
+
+func TestTVShowValidSeasons(t *testing.T) {
+	count12 := 12
+	count10 := 10
+	count0 := 0
+	airS1 := "2024-01-01"
+	airS3 := "2025-01-01"
+	firstAirDate := "2023-01-01"
+
+	tvShow := model.TVShow{
+		FirstAirDate: &firstAirDate,
+		Seasons: []model.Season{
+			{SeasonNumber: 0, EpisodeCount: &count12, AirDate: &airS1},
+			{SeasonNumber: 1, EpisodeCount: &count12, AirDate: &airS1},
+			{SeasonNumber: 2, EpisodeCount: &count0, AirDate: &airS1},
+			{SeasonNumber: 3, EpisodeCount: &count10, AirDate: &airS3},
+		},
+	}
+
+	meaningful := tvShow.ValidSeasons()
+	assert.Len(t, meaningful, 2)
+	assert.Equal(t, 1, meaningful[0].SeasonNumber)
+	assert.Equal(t, 3, meaningful[1].SeasonNumber)
+	assert.Equal(t, 2, tvShow.ValidSeasonCount())
+	assert.Equal(t, &airS3, tvShow.AirdateByValidOrder(2))
+}
+
+func TestTVShowValidSeasons_RequireAscendingAirDateBySeasonNumber(t *testing.T) {
+	count12 := 12
+	airS1 := "2025-01-01"
+	airS2 := "2024-01-01"
+	airS3 := "2026-01-01"
+	airS4 := "2025-06-01"
+
+	tvShow := model.TVShow{
+		Seasons: []model.Season{
+			{SeasonNumber: 1, EpisodeCount: &count12, AirDate: &airS1},
+			{SeasonNumber: 2, EpisodeCount: &count12, AirDate: &airS2},
+			{SeasonNumber: 3, EpisodeCount: &count12, AirDate: &airS3},
+			{SeasonNumber: 4, EpisodeCount: &count12, AirDate: &airS4},
+		},
+	}
+
+	meaningful := tvShow.ValidSeasons()
+	assert.Len(t, meaningful, 2)
+	assert.Equal(t, 1, meaningful[0].SeasonNumber)
+	assert.Equal(t, 3, meaningful[1].SeasonNumber)
+}
+
+func TestHandleTwoSeasonsCheck_AirdateFallbackOrder(t *testing.T) {
+	count12 := 12
+	count10 := 10
+	airS1 := "2024-01-01"
+	emptyAir := ""
+	airS3 := "2025-01-01"
+	firstAirDate := "2023-01-01"
+
+	tvShow := model.TVShow{
+		OriginalName:  toStringPtr("sample"),
+		FirstAirDate:  &firstAirDate,
+		OriginCountry: []string{"JP"},
+		Genres:        []map[string]any{{"id": float64(16)}},
+		Seasons: []model.Season{
+			{SeasonNumber: 1, EpisodeCount: &count12, AirDate: &airS1},
+			{SeasonNumber: 2, EpisodeCount: &count10, AirDate: &emptyAir},
+			{SeasonNumber: 3, EpisodeCount: &count10, AirDate: &airS3},
+		},
+	}
+
+	assert.Equal(t, &airS3, tvShow.AirdateByValidOrder(2))
+
+	tvShowNoSecondMeaningful := tvShow
+	tvShowNoSecondMeaningful.Seasons = []model.Season{
+		{SeasonNumber: 1, EpisodeCount: &count12, AirDate: &airS1},
+		{SeasonNumber: 2, EpisodeCount: &count10, AirDate: &emptyAir},
+	}
+	assert.Nil(t, tvShowNoSecondMeaningful.AirdateByValidOrder(2))
+	assert.Equal(t, &emptyAir, tvShowNoSecondMeaningful.FindAirdateBySeasonNumber(2))
+
+	tvShowNoSeason2Air := tvShow
+	tvShowNoSeason2Air.Seasons = []model.Season{
+		{SeasonNumber: 1, EpisodeCount: &count12, AirDate: &airS1},
+		{SeasonNumber: 2, EpisodeCount: &count10, AirDate: nil},
+	}
+	assert.Nil(t, tvShowNoSeason2Air.AirdateByValidOrder(2))
+	assert.Nil(t, tvShowNoSeason2Air.FindAirdateBySeasonNumber(2))
+	assert.Equal(t, &firstAirDate, tvShowNoSeason2Air.FirstAirDate)
+}
+
+func toStringPtr(s string) *string {
+	return &s
 }

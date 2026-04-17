@@ -105,7 +105,7 @@ func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesE
 		return nil, nil
 	}
 
-	seasonCount := tvShow.NumberOfSeasons
+	seasonCount := tvShow.ValidSeasonCount()
 	if seasonCount <= 0 || seasonCount >= 3 {
 		return nil, nil
 	}
@@ -128,7 +128,18 @@ func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesE
 // 处理季数为2时的特殊逻辑
 // 返回: shouldSkip (是否跳过后续处理), err (错误信息)
 func (ss *SeasonSplitter) handleTwoSeasonsCheck(tvShow model.TVShow) (bool, error) {
-	bangumiItems, err := ss.bangumiAPI.Search(*tvShow.OriginalName, tvShow.FindAirdateBySeasonNumber(2))
+	airDate := tvShow.AirdateByValidOrder(2)
+	if airDate == nil {
+		airDate = tvShow.FindAirdateBySeasonNumber(2)
+	}
+	if airDate == nil {
+		airDate = tvShow.FirstAirDate
+	}
+	if airDate == nil {
+		return false, nil
+	}
+
+	bangumiItems, err := ss.bangumiAPI.Search(*tvShow.OriginalName, airDate)
 	if err != nil {
 		logger.Error("Bangumi API 搜索 seasonCount=2 失败: %v", err)
 		return false, nil // 搜索失败不阻断流程，继续执行通用搜索

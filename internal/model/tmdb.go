@@ -1,5 +1,12 @@
 package model
 
+import (
+	"sort"
+	"strings"
+
+	"curetmdbanime/internal/logger"
+)
+
 // 它定义了剧集的详细属性, 用于在应用程序中表示和传输单个剧集数据
 type Episode struct {
 	ID            int            `json:"id" mapstructure:"id"`                                     // 唯一标识符
@@ -95,6 +102,7 @@ type TVShow struct {
 	Other            map[string]any   `mapstructure:",remain"`                                                  // 额外字段
 }
 
+// 返回原始季信息
 func (t *TVShow) SeasonsInfo() map[int][]int {
 	origSeasonsMap := make(map[int][]int, len(t.Seasons))
 	for _, item := range t.Seasons {
@@ -108,6 +116,7 @@ func (t *TVShow) SeasonsInfo() map[int][]int {
 	return origSeasonsMap
 }
 
+// 返回指定季的 air_date
 func (t *TVShow) FindAirdateBySeasonNumber(seasonNumber int) *string {
 	for _, item := range t.Seasons {
 		if item.SeasonNumber == seasonNumber {
@@ -115,6 +124,63 @@ func (t *TVShow) FindAirdateBySeasonNumber(seasonNumber int) *string {
 		}
 	}
 	return nil
+}
+
+// 返回通过有效性与时间顺序规则筛选后的季列表
+func (t *TVShow) ValidSeasons() []Season {
+	seasons := make([]Season, 0, len(t.Seasons))
+	for _, season := range t.Seasons {
+		if season.SeasonNumber <= 0 {
+			logger.Debug("Ignoring season %d due to invalid season number", season.SeasonNumber)
+			continue
+		}
+		if season.EpisodeCount == nil || *season.EpisodeCount <= 0 {
+			logger.Debug("Ignoring season %d due to missing episode count", season.SeasonNumber)
+			continue
+		}
+		if season.AirDate == nil || strings.TrimSpace(*season.AirDate) == "" {
+			logger.Debug("Ignoring season %d due to missing air date", season.SeasonNumber)
+			continue
+		}
+		seasons = append(seasons, season)
+	}
+
+	sort.Slice(seasons, func(i, j int) bool {
+		return seasons[i].SeasonNumber < seasons[j].SeasonNumber
+	})
+
+	valid := seasons[:0]
+	prevAirDate := ""
+	for _, season := range seasons {
+		airDate := strings.TrimSpace(*season.AirDate)
+		if prevAirDate != "" && airDate <= prevAirDate {
+			logger.Debug("Ignoring season %d due to invalid air date", season.SeasonNumber)
+			continue
+		}
+		valid = append(valid, season)
+		prevAirDate = airDate
+	}
+
+	return valid
+}
+
+// 返回有效季数量
+func (t *TVShow) ValidSeasonCount() int {
+	return len(t.ValidSeasons())
+}
+
+// 按有效季顺序返回指定位置的 air_date（从 1 开始）
+func (t *TVShow) AirdateByValidOrder(order int) *string {
+	if order <= 0 {
+		return nil
+	}
+
+	meaningful := t.ValidSeasons()
+	if len(meaningful) < order {
+		return nil
+	}
+
+	return meaningful[order-1].AirDate
 }
 
 func (t *TVShow) GenreIds() []int {
