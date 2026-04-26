@@ -51,10 +51,35 @@ type SeasonSplitter struct {
 
 // 结构，去重时追踪剧集信息及其在可修改结构中的引用
 type augmentedEpisode struct {
-	Episode           *map[string]any // 剧集数据
-	OriginalSeasonIdx int             // 原始 seasons 列表索引
-	OriginalEpIdx     int             // 原始 episodes 列表索引
-	SeasonNumber      int             // 剧集所属 season_number
+	Episode           map[string]any // 剧集数据（引用原始 map）
+	OriginalSeasonIdx int            // 原始 seasons 列表索引
+	OriginalEpIdx     int            // 原始 episodes 列表索引
+	SeasonNumber      int            // 剧集所属 season_number
+}
+
+// 返回剧集在原始 seasons/episodes 中的槽位索引
+func (ae augmentedEpisode) slot() struct{ SeasonIdx, EpIdx int } {
+	return struct{ SeasonIdx, EpIdx int }{ae.OriginalSeasonIdx, ae.OriginalEpIdx}
+}
+
+// 是否比另一个剧集占据更早的原始槽位
+// 规则: 先比较 SeasonIdx，再比较 EpIdx
+func (ae augmentedEpisode) isEarlierThan(other augmentedEpisode) bool {
+	if ae.OriginalSeasonIdx != other.OriginalSeasonIdx {
+		return ae.OriginalSeasonIdx < other.OriginalSeasonIdx
+	}
+	return ae.OriginalEpIdx < other.OriginalEpIdx
+}
+
+// 是否拥有更好的内容完整度
+// 规则: 完整度分更高者优先；分数相同时，保留更早槽位，确保行为稳定
+func (ae augmentedEpisode) isBetterContentThan(other augmentedEpisode) bool {
+	score := completenessScore(ae.Episode)
+	otherScore := completenessScore(other.Episode)
+	if score != otherScore {
+		return score > otherScore
+	}
+	return ae.isEarlierThan(other)
 }
 
 // 获取内部逻辑缓存实例
@@ -414,159 +439,96 @@ func completenessScore(episode map[string]any) int {
 
 // 根据播出日期和季度号去重，保留最完整剧集并保持顺序
 func RemoveDuplicateEpisodes(seasons []map[string]any) []map[string]any {
-	// episodesByAirDate: 按 air_date 分组所有剧集，每个 air_date 对应 augmentedEpisode 列表
-	// augmentedEpisode 包含指向 seasons 中实际剧集 map 的指针
-	episodesByAirDate := make(map[string][]*augmentedEpisode)
+	// episodesByAirDate: 按 air_date 分组所有剧集
+	episodesByAirDate := make(map[string][]augmentedEpisode)
 
-	// 按 air_date 分组，填充 augmentedEpisode 结构
-	for seasonIdx, season := range seasons { // 直接操作输入的 seasons
+	// 按 air_date 分组，记录剧集及其原始槽位
+	for seasonIdx, season := range seasons {
 		seasonNum := collection.GetInt(season, "season_number")
-
-		if episodesList, ok := season["episodes"].([]any); ok {
-			for epIdx, epInterface := range episodesList {
-				episodeMap, isMap := epInterface.(map[string]any)
-				if !isMap {
-					continue // 剧集非 map 类型，跳过
-				}
-
-				airDate, airDateExists := episodeMap["air_date"].(string)
-				if !airDateExists || airDate == "" {
-					continue // 无 air_date 剧集不参与去重
-				}
-
-				// 创建 augmentedEpisode, Episode 字段指向 seasons 中实际 map
-				augmentedEp := &augmentedEpisode{
-					Episode:           &episodeMap, // 指针！
-					OriginalSeasonIdx: seasonIdx,
-					OriginalEpIdx:     epIdx,
-					SeasonNumber:      seasonNum,
-				}
-				episodesByAirDate[airDate] = append(episodesByAirDate[airDate], augmentedEp)
+		for epIdx, episode := range getEpisodesAsMapSlice(season["episodes"]) {
+			airDate, _ := episode["air_date"].(string)
+			if airDate == "" {
+				continue // 无 air_date 剧集不参与去重
 			}
+			episodesByAirDate[airDate] = append(episodesByAirDate[airDate], augmentedEpisode{
+				Episode:           episode,
+				OriginalSeasonIdx: seasonIdx,
+				OriginalEpIdx:     epIdx,
+				SeasonNumber:      seasonNum,
+			})
 		}
 	}
 
-	// slotsToRemove: 存储需移除的原始槽位索引
+	// 存储需移除的原始槽位索引
 	slotsToRemove := make(map[struct{ SeasonIdx, EpIdx int }]bool)
 
-	// air_date 组，进行内容合并和标记移除
-	for _, group := range episodesByAirDate { // group 是 []*augmentedEpisode
+	// 对每个 air_date 分组进行内容合并和移除标记
+	for _, group := range episodesByAirDate {
 		if len(group) <= 1 {
 			continue // 单个剧集，无需去重
 		}
 
-		// 检查此 group 是否包含跨季度的剧集
-		seasonNumbersInGroup := make(map[int]bool)
-		for _, ae := range group {
-			seasonNumbersInGroup[ae.SeasonNumber] = true
-		}
+		keeper := group[0]      // 最早原始槽位，负责保留顺序
+		bestContent := group[0] // 内容最完整的剧集，负责提供合并内容
+		hasCrossSeasonDuplicate := false
 
-		if len(seasonNumbersInGroup) == 1 {
-			// 所有剧集属同 SeasonNumber，不进行去重合并
-			continue
-		}
-
-		// 寻找“最佳内容”剧集 (最高分) 和“保留槽位”剧集 (最小 OriginalSeasonIdx/EpIdx)
-		// 初始化为组中第一个剧集
-		bestContentAugmentedEp := group[0]
-		maxScore := completenessScore(*bestContentAugmentedEp.Episode)
-
-		keeperSlotAugmentedEp := group[0]
-		minSeasonIdx := keeperSlotAugmentedEp.OriginalSeasonIdx
-		minEpIdx := keeperSlotAugmentedEp.OriginalEpIdx
-
-		for i := 1; i < len(group); i++ { // 从第二个剧集开始遍历
-			ae := group[i]
-			currentScore := completenessScore(*ae.Episode)
-
-			// 最佳内容剧集: 最高分，平分时 OriginalSeasonIdx 最小，其次 OriginalEpIdx 最小
-			if currentScore > maxScore {
-				maxScore = currentScore
-				bestContentAugmentedEp = ae
-			} else if currentScore == maxScore {
-				if ae.OriginalSeasonIdx < bestContentAugmentedEp.OriginalSeasonIdx { // 优先选择 OriginalSeasonIdx 较小
-					bestContentAugmentedEp = ae
-				} else if ae.OriginalSeasonIdx == bestContentAugmentedEp.OriginalSeasonIdx {
-					if ae.OriginalEpIdx < bestContentAugmentedEp.OriginalEpIdx { // 优先选择 OriginalEpIdx 较小
-						bestContentAugmentedEp = ae
-					}
-				}
+		for _, candidate := range group[1:] {
+			if candidate.SeasonNumber != keeper.SeasonNumber {
+				hasCrossSeasonDuplicate = true
 			}
-
-			// 保留槽位剧集: OriginalSeasonIdx 最小，其次 OriginalEpIdx 最小
-			if ae.OriginalSeasonIdx < minSeasonIdx {
-				minSeasonIdx = ae.OriginalSeasonIdx
-				minEpIdx = ae.OriginalEpIdx
-				keeperSlotAugmentedEp = ae
-			} else if ae.OriginalSeasonIdx == minSeasonIdx {
-				if ae.OriginalEpIdx < minEpIdx {
-					minEpIdx = ae.OriginalEpIdx
-					keeperSlotAugmentedEp = ae
-				}
+			if candidate.isEarlierThan(keeper) {
+				keeper = candidate
+			}
+			if candidate.isBetterContentThan(bestContent) {
+				bestContent = candidate
 			}
 		}
+		if !hasCrossSeasonDuplicate {
+			continue // 同一 season_number 内的同日剧集不做去重
+		}
 
-		// 合并内容
-		// 备份 keeperSlotAugmentedEp 中要保留字段值 (season_number, episode_number, id)
-		// bestContentAugmentedEp 字段可能与 keeperSlotAugmentedEp 不同，需保留 keeperSlotAugmentedEp 原始位置信息
-		originalSeasonNumber := (*keeperSlotAugmentedEp.Episode)["season_number"]
-		originalEpisodeNumber := (*keeperSlotAugmentedEp.Episode)["episode_number"]
-		originalID := (*keeperSlotAugmentedEp.Episode)["id"]
+		// 备份 keeper 中必须保留的位置字段
+		// 即便内容来自其他剧集，也必须维持 keeper 原始 season/episode/id
+		originalSeasonNumber := keeper.Episode["season_number"]
+		originalEpisodeNumber := keeper.Episode["episode_number"]
+		originalID := keeper.Episode["id"]
 
-		// 覆盖 keeperSlotAugmentedEp 内容
-		maps.Copy((*keeperSlotAugmentedEp.Episode), *bestContentAugmentedEp.Episode)
+		// 用最完整的内容覆盖 keeper，再恢复位置字段
+		maps.Copy(keeper.Episode, bestContent.Episode)
+		keeper.Episode["season_number"] = originalSeasonNumber
+		keeper.Episode["episode_number"] = originalEpisodeNumber
+		keeper.Episode["id"] = originalID
 
-		// 恢复 keeperSlotAugmentedEp 原始 season_number, episode_number, id 字段值
-		// 确保合并后剧集仍有正确原始位置信息
-		(*keeperSlotAugmentedEp.Episode)["season_number"] = originalSeasonNumber
-		(*keeperSlotAugmentedEp.Episode)["episode_number"] = originalEpisodeNumber
-		(*keeperSlotAugmentedEp.Episode)["id"] = originalID
-
-		// 标记除 keeperSlotAugmentedEp 外所有剧集为移除
-		for _, ae := range group {
-			// 直接判断 augmentedEpisode 是否为保留槽位剧集
-			if ae != keeperSlotAugmentedEp {
-				logger.Debug("标记剧集S%dE%d为移除: %v", ae.OriginalSeasonIdx, ae.OriginalEpIdx, ae)
-				slotsToRemove[struct{ SeasonIdx, EpIdx int }{ae.OriginalSeasonIdx, ae.OriginalEpIdx}] = true
+		// 标记除 keeper 外所有剧集为移除
+		for _, candidate := range group {
+			if candidate.slot() == keeper.slot() {
+				continue
 			}
+			logger.Debug("标记剧集S%dE%d为移除: %v", candidate.OriginalSeasonIdx, candidate.OriginalEpIdx, candidate)
+			slotsToRemove[candidate.slot()] = true
 		}
 	}
 
-	// 根据 slotsToRemove 构建季度列表
-	seasonsWriteIdx := 0 // 跟踪修改后 seasons 列表写入有效季度的位置
-
-	for seasonsReadIdx := range seasons {
-		currentSeason := seasons[seasonsReadIdx]
-		var filteredEpisodes []map[string]any
-		// 遍历当前季度所有剧集
-		if episodesList, ok := currentSeason["episodes"].([]any); ok {
-			for epIdx, epInterface := range episodesList {
-				// 检查剧集槽位是否标记为移除
-				if !slotsToRemove[struct{ SeasonIdx, EpIdx int }{seasonsReadIdx, epIdx}] {
-					// 确保添加到 filteredEpisodes 为 map[string]any 类型
-					if episodeMap, isMap := epInterface.(map[string]any); isMap {
-						filteredEpisodes = append(filteredEpisodes, episodeMap)
-					}
-				}
+	// 根据 slotsToRemove 过滤剧集，并原地压缩 seasons
+	writeIdx := 0
+	for seasonIdx, season := range seasons {
+		filteredEpisodes := make([]map[string]any, 0)
+		for epIdx, episode := range getEpisodesAsMapSlice(season["episodes"]) {
+			if slotsToRemove[struct{ SeasonIdx, EpIdx int }{seasonIdx, epIdx}] {
+				continue
 			}
+			filteredEpisodes = append(filteredEpisodes, episode)
+		}
+		if len(filteredEpisodes) == 0 {
+			continue // 空季直接跳过
 		}
 
-		// 过滤后该季度仍有剧集
-		if len(filteredEpisodes) > 0 {
-			// 更新当前季度 episodes 键值为 filteredEpisodes
-			currentSeason["episodes"] = filteredEpisodes
-
-			// 若 seasonsReadIdx != seasonsWriteIdx, 表明有季度被跳过 (移除或为空)
-			// 需将当前有效季度复制到 seasons[seasonsWriteIdx]
-			if seasonsReadIdx != seasonsWriteIdx {
-				seasons[seasonsWriteIdx] = currentSeason
-			}
-			seasonsWriteIdx++ // 递增写入索引
-		}
+		season["episodes"] = filteredEpisodes
+		seasons[writeIdx] = season
+		writeIdx++
 	}
 
-	// 返回修改后 seasons slice 的有效部分
-	return seasons[:seasonsWriteIdx]
+	return seasons[:writeIdx]
 }
 
 func getEpisodesAsMapSlice(episodesField any) []map[string]any {
