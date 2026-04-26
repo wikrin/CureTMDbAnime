@@ -1,17 +1,23 @@
 # 构建阶段
-FROM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
+ARG TARGETARCH
+ARG TARGETOS
 ARG VERSION
 
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN go build -ldflags " \
-    -s -w \
-    -X curetmdbanime/internal/config.Version=${VERSION:-dev}" \
-    -o ./bin/curetmdbanime .
+RUN CGO_ENABLED=0 \
+    GOOS=$TARGETOS \
+    GOARCH=$TARGETARCH \
+    go build -ldflags " \
+        -s -w \
+        -X curetmdbanime/internal/config.Version=${VERSION:-dev}" \
+    -o ./bin/curetmdbanime \
+    .
 
 FROM alpine:latest
 
