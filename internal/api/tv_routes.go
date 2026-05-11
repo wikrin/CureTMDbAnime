@@ -62,7 +62,7 @@ func GetTVDetails(ginContext *gin.Context, tvService *service.TVService) {
 	logger.Info("API 请求: 获取剧集详情, TMDB ID: %d", tmdbID)
 
 	params := ginContext.Request.URL.Query()
-	tvDetails, serviceErr := tvService.GetTVDetail(tmdbID, params)
+	tvDetails, serviceErr := tvService.GetTVDetail(ginContext.Request.Context(), tmdbID, params)
 	if serviceErr != nil {
 		handleError(ginContext, serviceErr)
 		return // 确保在处理服务层错误后立即返回
@@ -93,7 +93,7 @@ func GetSeasonDetails(ginContext *gin.Context, tvService *service.TVService) {
 	logger.Info("API 请求: 获取季度详情, TMDB ID: %d, 季号: %d", tmdbID, seasonNumber)
 
 	params := ginContext.Request.URL.Query()
-	seasonDetails, serviceErr := tvService.GetSeasonDetail(tmdbID, seasonNumber, params)
+	seasonDetails, serviceErr := tvService.GetSeasonDetail(ginContext.Request.Context(), tmdbID, seasonNumber, params)
 	if serviceErr != nil {
 		handleError(ginContext, serviceErr)
 		return // 确保在处理服务层错误后立即返回
@@ -130,7 +130,7 @@ func GetEpisodeDetails(ginContext *gin.Context, tvService *service.TVService) {
 	logger.Info("API 请求: 获取单集详情, TMDB ID: %d, 季号: %d, 剧集号: %d", tmdbID, seasonNumber, episodeNumber)
 
 	params := ginContext.Request.URL.Query()
-	episodeDetails, serviceErr := tvService.GetEpisodeDetail(tmdbID, seasonNumber, episodeNumber, params)
+	episodeDetails, serviceErr := tvService.GetEpisodeDetail(ginContext.Request.Context(), tmdbID, seasonNumber, episodeNumber, params)
 	if serviceErr != nil {
 		handleError(ginContext, serviceErr)
 		return // 确保在处理服务层错误后立即返回

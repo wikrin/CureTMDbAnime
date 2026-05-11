@@ -37,13 +37,13 @@ func GetUpstreamTMDBInstance() *UpstreamTMDB {
 }
 
 // 从 TMDB API 获取数据并反序列化为 map
-func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]any, *model.ServiceError) {
+func (u *UpstreamTMDB) getTMDBData(ctx context.Context, path string, params url.Values) (map[string]any, *model.ServiceError) {
 	fullURL := fmt.Sprintf("%s/3/%s", config.AppSettings.TmdbAPIURL, path)
 	if len(params) > 0 {
 		fullURL += "?" + params.Encode()
 	}
 
-	resp, err := u.httpClient.GetRes(context.Background(), fullURL, nil)
+	resp, err := u.httpClient.GetRes(ctx, fullURL, nil)
 	if resp == nil {
 		return nil, model.NewServiceError(http.StatusInternalServerError, "HTTP 响应为空", err)
 	}
@@ -73,27 +73,27 @@ func (u *UpstreamTMDB) getTMDBData(path string, params url.Values) (map[string]a
 }
 
 // 获取指定 TMDB ID 电视剧详情
-func (u *UpstreamTMDB) GetTVDetail(tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
+func (u *UpstreamTMDB) GetTVDetail(ctx context.Context, tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("tv/%d", tmdbID)
-	return u.getTMDBData(path, params)
+	return u.getTMDBData(ctx, path, params)
 }
 
 // 获取指定 TMDB ID 电视剧的指定季度详情
-func (u *UpstreamTMDB) GetSeasonDetail(tmdbID, seasonNumber int, params url.Values) (map[string]any, *model.ServiceError) {
+func (u *UpstreamTMDB) GetSeasonDetail(ctx context.Context, tmdbID, seasonNumber int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("tv/%d/season/%d", tmdbID, seasonNumber)
-	return u.getTMDBData(path, params)
+	return u.getTMDBData(ctx, path, params)
 }
 
 // 获取指定电视剧特定季度特定剧集详情
-func (u *UpstreamTMDB) GetEpisodeDetail(tmdbID int, seasonNumber int, episodeNumber int, params url.Values) (map[string]any, *model.ServiceError) {
+func (u *UpstreamTMDB) GetEpisodeDetail(ctx context.Context, tmdbID int, seasonNumber int, episodeNumber int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("tv/%d/season/%d/episode/%d", tmdbID, seasonNumber, episodeNumber)
-	return u.getTMDBData(path, params)
+	return u.getTMDBData(ctx, path, params)
 }
 
 // 获取指定 TMDB ID 电影详情
-func (u *UpstreamTMDB) GetMovieDetail(tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
+func (u *UpstreamTMDB) GetMovieDetail(ctx context.Context, tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
 	path := fmt.Sprintf("movie/%d", tmdbID)
-	result, err := u.getTMDBData(path, params)
+	result, err := u.getTMDBData(ctx, path, params)
 	if err != nil {
 		return nil, err
 	}

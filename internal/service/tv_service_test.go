@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"testing"
@@ -104,7 +105,7 @@ func TestTVService_GetTVDetail_Integration(t *testing.T) {
 			t.Parallel()
 			assert := assert.New(t)
 
-			tvShow, err := globalTVService.GetTVDetail(tt.tvID, globalAPIParams)
+			tvShow, err := globalTVService.GetTVDetail(context.Background(), tt.tvID, globalAPIParams)
 			assert.Nil(err)
 			assert.NotNil(tvShow)
 			assert.True(tvShow.NumberOfSeasons >= tt.minSeasons)
@@ -154,7 +155,7 @@ func TestTVService_GetSeasonDetail_Integration(t *testing.T) {
 			t.Parallel()
 			assert := assert.New(t)
 
-			season, err := globalTVService.GetSeasonDetail(tt.tvID, tt.seasonNumber, globalAPIParams)
+			season, err := globalTVService.GetSeasonDetail(context.Background(), tt.tvID, tt.seasonNumber, globalAPIParams)
 			assert.Nil(err)
 			assert.NotNil(season)
 			assert.Equal(len(season.Episodes), tt.minEpisodes)
@@ -217,7 +218,7 @@ func TestTVService_GetEpisodeDetail_Integration(t *testing.T) {
 			t.Parallel()
 			assert := assert.New(t)
 
-			episode, err := globalTVService.GetEpisodeDetail(tt.tvID, tt.seasonNumber, tt.episodeNumber, globalAPIParams)
+			episode, err := globalTVService.GetEpisodeDetail(context.Background(), tt.tvID, tt.seasonNumber, tt.episodeNumber, globalAPIParams)
 			assert.Nil(err)
 			assert.NotNil(episode)
 			assert.Equal(tt.seasonNumber, episode.SeasonNumber)

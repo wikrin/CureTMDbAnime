@@ -201,7 +201,7 @@ func NewBangumiAPIClient() *BangumiAPIClient {
 }
 
 // 向 Bangumi API 发送请求
-func (b *BangumiAPIClient) invoke(method, endpoint string, body any, params url.Values) (any, error) {
+func (b *BangumiAPIClient) invoke(ctx context.Context, method, endpoint string, body any, params url.Values) (any, error) {
 	cacheKeyBuilder := strings.Builder{}
 	cacheKeyBuilder.WriteString(method)
 	cacheKeyBuilder.WriteString(":")
@@ -222,7 +222,7 @@ func (b *BangumiAPIClient) invoke(method, endpoint string, body any, params url.
 	headers := make(map[string]string)
 	headers["User-Agent"] = b.userAgent
 
-	bodyBytes, err := b.apiClient.DoRequest(context.Background(), method, BangumiAPIBaseURL, endpoint, body, params, headers)
+	bodyBytes, err := b.apiClient.DoRequest(ctx, method, BangumiAPIBaseURL, endpoint, body, params, headers)
 	if err != nil {
 		return nil, fmt.Errorf("Bangumi API 请求错误: %w", err)
 	}
@@ -240,7 +240,7 @@ func (b *BangumiAPIClient) invoke(method, endpoint string, body any, params url.
 }
 
 // 在 Bangumi 上搜索条目
-func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]any, error) {
+func (b *BangumiAPIClient) Search(ctx context.Context, title string, airDate *string) ([]map[string]any, error) {
 	if title == "" || airDate == nil || *airDate == "" {
 		return nil, nil
 	}
@@ -266,7 +266,7 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 		},
 	}
 
-	resp, err := b.invoke(http.MethodPost, b.urls["search"], jsonBody, nil)
+	resp, err := b.invoke(ctx, http.MethodPost, b.urls["search"], jsonBody, nil)
 	if err != nil {
 		logger.Error("Bangumi API 请求错误: %v", err)
 		return nil, fmt.Errorf("搜索: 调用 Bangumi API 搜索 '%s' 失败: %w", title, err)
@@ -298,9 +298,9 @@ func (b *BangumiAPIClient) Search(title string, airDate *string) ([]map[string]a
 }
 
 // 获取条目的详细信息
-func (b *BangumiAPIClient) Detail(bid int) (map[string]any, error) {
+func (b *BangumiAPIClient) Detail(ctx context.Context, bid int) (map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["detail"], bid)
-	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
+	resp, err := b.invoke(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("详情: 获取 Bangumi ID '%d' 详情失败: %w", bid, err)
 	}
@@ -316,9 +316,9 @@ func (b *BangumiAPIClient) Detail(bid int) (map[string]any, error) {
 }
 
 // 获取相关条目
-func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
+func (b *BangumiAPIClient) Subjects(ctx context.Context, bid int) ([]map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["subjects"], bid)
-	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
+	resp, err := b.invoke(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("获取 Bangumi ID '%d' 相关条目失败: %w", bid, err)
 	}
@@ -354,9 +354,9 @@ func (b *BangumiAPIClient) Subjects(bid int) ([]map[string]any, error) {
 }
 
 // 获取条目的剧集列表
-func (b *BangumiAPIClient) Episodes(bid int) ([]map[string]any, error) {
+func (b *BangumiAPIClient) Episodes(ctx context.Context, bid int) ([]map[string]any, error) {
 	endpoint := fmt.Sprintf(b.urls["episodes"], bid)
-	resp, err := b.invoke(http.MethodGet, endpoint, nil, nil)
+	resp, err := b.invoke(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("剧集: 获取 Bangumi ID '%d' 剧集列表失败: %w", bid, err)
 	}
@@ -386,7 +386,7 @@ func (b *BangumiAPIClient) Episodes(bid int) ([]map[string]any, error) {
 }
 
 // 递归获取所有续集条目 ID
-func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
+func (b *BangumiAPIClient) GetAllSequels(ctx context.Context, bid int) ([]int, error) {
 	result := make(map[int]struct{})
 	var sequence []int
 
@@ -398,7 +398,7 @@ func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
 		result[currentBID] = struct{}{}
 		sequence = append(sequence, currentBID)
 
-		related, err := b.Subjects(currentBID)
+		related, err := b.Subjects(ctx, currentBID)
 		if err != nil {
 			logger.Error("错误=%v", err)
 			return
@@ -421,14 +421,14 @@ func (b *BangumiAPIClient) GetAllSequels(bid int) ([]int, error) {
 }
 
 // 处理 Bangumi 条目以创建 SeriesEntry
-func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, error) {
+func (b *BangumiAPIClient) SeasonInfo(ctx context.Context, item map[string]any) (*model.SeriesEntry, error) {
 	if item == nil {
 		return nil, nil
 	}
 
 	bgmSeasons := make(map[int]*model.SeasonEntry)
 
-	sids, err := b.GetAllSequels(int(item[BangumiResponseID].(float64)))
+	sids, err := b.GetAllSequels(ctx, int(item[BangumiResponseID].(float64)))
 	if err != nil {
 		return nil, fmt.Errorf("季信息: 获取所有续集 ID 失败: %w", err)
 	}
@@ -439,19 +439,19 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 	}
 
 	for _, sid := range sids {
-		detail, err := b.Detail(sid)
+		detail, err := b.Detail(ctx, sid)
 		if err != nil {
 			logger.Error("获取 Bangumi ID %d 的详情时出错: 错误=%v", sid, err)
 			continue
-		}else if detail == nil {
+		} else if detail == nil {
 			logger.Warn("Bangumi ID %d 详情为空", sid)
 			continue
-		}else if detail[BangumiPlatform] != nil && ForbiddenBangumiPlatforms.Contains(detail[BangumiPlatform].(string)) {
+		} else if detail[BangumiPlatform] != nil && ForbiddenBangumiPlatforms.Contains(detail[BangumiPlatform].(string)) {
 			logger.Info("%s ID=%d, %s in %s, 跳过处理", detail[BangumiNameCN], sid, detail[BangumiPlatform], ForbiddenBangumiPlatforms.ToSlice())
 			continue
 		}
 
-		logger.Debug("处理条目[%d]: %s",detail[BangumiNameCN], detail)
+		logger.Debug("处理条目[%d]: %s", detail[BangumiNameCN], detail)
 		nameCN := ""
 		if nc, ok := detail[BangumiNameCN].(string); ok {
 			nameCN = nc
@@ -477,7 +477,7 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 				SeasonNumber: num,
 			}
 		} else {
-			isSortEqualEp, err := b.IsFirstEpisodeSequential(sid)
+			isSortEqualEp, err := b.IsFirstEpisodeSequential(ctx, sid)
 			if err != nil {
 				logger.Error("错误=%v", err)
 				bgmSeasons[num].EpisodeCount += eps
@@ -515,8 +515,8 @@ func (b *BangumiAPIClient) SeasonInfo(item map[string]any) (*model.SeriesEntry, 
 }
 
 // 判断首集的 sort 和 ep 值是否相等
-func (b *BangumiAPIClient) IsFirstEpisodeSequential(sid int) (bool, error) {
-	episodes, err := b.Episodes(sid)
+func (b *BangumiAPIClient) IsFirstEpisodeSequential(ctx context.Context, sid int) (bool, error) {
+	episodes, err := b.Episodes(ctx, sid)
 	if err != nil {
 		return false, fmt.Errorf("Bangumi ID '%d' 比较顺序号序与剧集号失败: 获取剧集失败: %w", sid, err)
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,9 +30,9 @@ func NewTVService() *TVService {
 
 // 确保给定 tmdbID 的 LogicSeries 已加载到缓存
 // 这是处理自定义剧集逻辑的前提
-func (s *TVService) ensureLogicLoaded(tmdbID int, params url.Values) *model.ServiceError {
+func (s *TVService) ensureLogicLoaded(ctx context.Context, tmdbID int, params url.Values) *model.ServiceError {
 	// 尝试从上游获取原始信息
-	originalTVShowData, err := s.upstream.GetTVDetail(tmdbID, params)
+	originalTVShowData, err := s.upstream.GetTVDetail(ctx, tmdbID, params)
 	if err != nil {
 		logger.Error("upstream.GetTVDetail 获取上游电视剧详情失败: %v", err)
 		return err
@@ -40,7 +41,7 @@ func (s *TVService) ensureLogicLoaded(tmdbID int, params url.Values) *model.Serv
 		return model.NewServiceError(http.StatusNotFound, fmt.Sprintf("未找到 TMDB ID %d 的电视剧详情", tmdbID), nil)
 	}
 
-	_, err = s.splitter.GetLogicSeries(tmdbID, originalTVShowData, params)
+	_, err = s.splitter.GetLogicSeries(ctx, tmdbID, originalTVShowData, params)
 	if err != nil {
 		logger.Warn("无法为剧集加载逻辑: TMDB ID=%d, 错误=%v", tmdbID, err)
 		return err
@@ -49,8 +50,8 @@ func (s *TVService) ensureLogicLoaded(tmdbID int, params url.Values) *model.Serv
 }
 
 // 获取电视剧详情，并应用自定义逻辑
-func (s *TVService) GetTVDetail(tmdbID int, params url.Values) (*model.TVShow, *model.ServiceError) {
-	originalTVShowData, err := s.upstream.GetTVDetail(tmdbID, params)
+func (s *TVService) GetTVDetail(ctx context.Context, tmdbID int, params url.Values) (*model.TVShow, *model.ServiceError) {
+	originalTVShowData, err := s.upstream.GetTVDetail(ctx, tmdbID, params)
 	if err != nil {
 		logger.Error("upstream.GetTVDetail 获取上游电视剧详情失败: %v", err)
 		return nil, err
@@ -60,7 +61,7 @@ func (s *TVService) GetTVDetail(tmdbID int, params url.Values) (*model.TVShow, *
 	}
 
 	// 尝试获取自定义剧集逻辑
-	logicSeriesData, err := s.splitter.GetLogicSeries(tmdbID, originalTVShowData, params)
+	logicSeriesData, err := s.splitter.GetLogicSeries(ctx, tmdbID, originalTVShowData, params)
 	if err != nil {
 		logger.Warn("获取剧集逻辑失败: TMDB ID=%d, 错误=%v", tmdbID, err)
 		// 如果逻辑获取失败，继续使用原始数据，仅记录警告
@@ -122,8 +123,8 @@ func (s *TVService) applyTVLogicAndTransform(tmdbID int, originalTVShowData map[
 }
 
 // 获取季详情，并应用自定义逻辑（如果可用）
-func (s *TVService) GetSeasonDetail(tmdbID, seasonNumber int, params url.Values) (*model.Season, *model.ServiceError) {
-	err := s.ensureLogicLoaded(tmdbID, params)
+func (s *TVService) GetSeasonDetail(ctx context.Context, tmdbID, seasonNumber int, params url.Values) (*model.Season, *model.ServiceError) {
+	err := s.ensureLogicLoaded(ctx, tmdbID, params)
 	if err != nil {
 		logger.Warn("无法为剧集加载逻辑: TMDB ID=%d, 错误=%v", tmdbID, err)
 		return nil, err
@@ -135,10 +136,10 @@ func (s *TVService) GetSeasonDetail(tmdbID, seasonNumber int, params url.Values)
 		logicSeries := logicCacheEntry.(*model.LogicSeries)
 
 		// 尝试合并并返回逻辑季信息
-		logicSeason, mergeErr := s.fetchAndMergeLogicSeasonEpisodes(tmdbID, seasonNumber, params, logicSeries)
+		logicSeason, mergeErr := s.fetchAndMergeLogicSeasonEpisodes(ctx, tmdbID, seasonNumber, params, logicSeries)
 		if mergeErr != nil {
 			logger.Warn("合并逻辑季剧集失败，回退到上游数据: TMDB ID=%d, 季号=%d, 错误=%v", tmdbID, seasonNumber, mergeErr)
-			return s.getUpstreamSeasonDetail(tmdbID, seasonNumber, params)
+			return s.getUpstreamSeasonDetail(ctx, tmdbID, seasonNumber, params)
 		}
 		if logicSeason != nil {
 			return logicSeason, nil
@@ -146,12 +147,12 @@ func (s *TVService) GetSeasonDetail(tmdbID, seasonNumber int, params url.Values)
 	}
 
 	// 如果没有自定义逻辑，则获取上游季详情
-	return s.getUpstreamSeasonDetail(tmdbID, seasonNumber, params)
+	return s.getUpstreamSeasonDetail(ctx, tmdbID, seasonNumber, params)
 }
 
 // 获取原始季的剧集数据
 // 根据 LogicSeries 进行剧集重映射和聚合，生成逻辑季的 model.Season
-func (s *TVService) fetchAndMergeLogicSeasonEpisodes(tmdbID, seasonNumber int, params url.Values, logicSeries *model.LogicSeries) (*model.Season, error) {
+func (s *TVService) fetchAndMergeLogicSeasonEpisodes(ctx context.Context, tmdbID, seasonNumber int, params url.Values, logicSeries *model.LogicSeries) (*model.Season, error) {
 	logicSeasonInfo := logicSeries.SeasonInfo(seasonNumber)
 	if logicSeasonInfo == nil {
 		return nil, nil // 未找到对应的逻辑季信息
@@ -168,7 +169,7 @@ func (s *TVService) fetchAndMergeLogicSeasonEpisodes(tmdbID, seasonNumber int, p
 		if episodeMap.Type == "tv" {
 			go func(orgSeasonNum int) {
 				defer wg.Done()
-				upstreamSeasonEpisodes, upstreamErr := s.upstream.GetSeasonDetail(tmdbID, orgSeasonNum, params)
+				upstreamSeasonEpisodes, upstreamErr := s.upstream.GetSeasonDetail(ctx, tmdbID, orgSeasonNum, params)
 				if upstreamErr != nil {
 					logger.Warn("获取上游季数据失败: 原始季号=%d, 错误=%v", orgSeasonNum, upstreamErr)
 					return
@@ -193,7 +194,7 @@ func (s *TVService) fetchAndMergeLogicSeasonEpisodes(tmdbID, seasonNumber int, p
 					return
 				}
 				movieID := *em.TMDBID
-				upstreamMovie, upstreamErr := s.upstream.GetMovieDetail(movieID, params)
+				upstreamMovie, upstreamErr := s.upstream.GetMovieDetail(ctx, movieID, params)
 				if upstreamErr != nil {
 					logger.Warn("获取上游电影数据失败: MovieID=%d, 错误=%v", movieID, upstreamErr)
 					return
@@ -242,8 +243,8 @@ func (s *TVService) fetchAndMergeLogicSeasonEpisodes(tmdbID, seasonNumber int, p
 }
 
 // 从上游 TMDb 获取季详情
-func (s *TVService) getUpstreamSeasonDetail(tmdbID, seasonNumber int, params url.Values) (*model.Season, *model.ServiceError) {
-	upstreamSeasonData, err := s.upstream.GetSeasonDetail(tmdbID, seasonNumber, params)
+func (s *TVService) getUpstreamSeasonDetail(ctx context.Context, tmdbID, seasonNumber int, params url.Values) (*model.Season, *model.ServiceError) {
+	upstreamSeasonData, err := s.upstream.GetSeasonDetail(ctx, tmdbID, seasonNumber, params)
 	if err != nil {
 		logger.Error("获取上游季详情失败: TMDB ID=%d, 季号=%d, 错误=%v", tmdbID, seasonNumber, err)
 		return nil, err
@@ -260,8 +261,8 @@ func (s *TVService) getUpstreamSeasonDetail(tmdbID, seasonNumber int, params url
 }
 
 // 获取剧集详情，并应用自定义逻辑（如果可用）
-func (s *TVService) GetEpisodeDetail(tmdbID, seasonNumber, episodeNumber int, params url.Values) (*model.Episode, *model.ServiceError) {
-	err := s.ensureLogicLoaded(tmdbID, params)
+func (s *TVService) GetEpisodeDetail(ctx context.Context, tmdbID, seasonNumber, episodeNumber int, params url.Values) (*model.Episode, *model.ServiceError) {
+	err := s.ensureLogicLoaded(ctx, tmdbID, params)
 	if err != nil {
 		logger.Warn("无法为剧集加载逻辑: TMDB ID=%d, 错误=%v", tmdbID, err)
 	}
@@ -272,7 +273,7 @@ func (s *TVService) GetEpisodeDetail(tmdbID, seasonNumber, episodeNumber int, pa
 		logicSeries := logicCacheEntry.(*model.LogicSeries)
 
 		// 尝试获取并应用逻辑剧集信息
-		logicEpisode, serviceErr := s.fetchAndApplyLogicEpisodeDetail(tmdbID, seasonNumber, episodeNumber, params, logicSeries)
+		logicEpisode, serviceErr := s.fetchAndApplyLogicEpisodeDetail(ctx, tmdbID, seasonNumber, episodeNumber, params, logicSeries)
 		if serviceErr != nil {
 			logger.Warn("获取并应用逻辑剧集详情失败: TMDB ID=%d, 季号=%d, 剧集号=%d, 错误=%v", tmdbID, seasonNumber, episodeNumber, serviceErr)
 		}
@@ -281,12 +282,12 @@ func (s *TVService) GetEpisodeDetail(tmdbID, seasonNumber, episodeNumber int, pa
 		}
 	}
 	// 获取上游剧集详情
-	return s.getUpstreamEpisodeDetail(tmdbID, seasonNumber, episodeNumber, params)
+	return s.getUpstreamEpisodeDetail(ctx, tmdbID, seasonNumber, episodeNumber, params)
 }
 
 // 根据 LogicSeries 的剧集映射
 // 获取上游剧集详情，并转换为逻辑剧集信息
-func (s *TVService) fetchAndApplyLogicEpisodeDetail(tmdbID int, seasonNumber int, episodeNumber int, params url.Values, logicSeries *model.LogicSeries) (*model.Episode, *model.ServiceError) {
+func (s *TVService) fetchAndApplyLogicEpisodeDetail(ctx context.Context, tmdbID int, seasonNumber int, episodeNumber int, params url.Values, logicSeries *model.LogicSeries) (*model.Episode, *model.ServiceError) {
 	logicSeasonInfo := logicSeries.SeasonInfo(seasonNumber)
 	if logicSeasonInfo != nil {
 		if episodeMapping, ok := logicSeasonInfo.EpisodesMap[episodeNumber]; ok {
@@ -296,7 +297,7 @@ func (s *TVService) fetchAndApplyLogicEpisodeDetail(tmdbID int, seasonNumber int
 				logger.Info("虚拟单集: TMDB ID=%d, 季号=%d, 剧集号=%d, 重定向至电影: TMDB ID=%d", tmdbID, seasonNumber, episodeNumber, *episodeMapping.TMDBID)
 			}
 
-			upstreamEpisode, err := s.getUpstreamEpisodeDetail(tmdbID, episodeMapping.SeasonNum(), episodeMapping.EpisodeNum(), params)
+			upstreamEpisode, err := s.getUpstreamEpisodeDetail(ctx, tmdbID, episodeMapping.SeasonNum(), episodeMapping.EpisodeNum(), params)
 			if err != nil {
 				return nil, err
 			}
@@ -309,14 +310,14 @@ func (s *TVService) fetchAndApplyLogicEpisodeDetail(tmdbID int, seasonNumber int
 }
 
 // 从上游 TMDb 获取剧集详情
-func (s *TVService) getUpstreamEpisodeDetail(tmdbID int, seasonNumber int, episodeNumber int, params url.Values) (*model.Episode, *model.ServiceError) {
+func (s *TVService) getUpstreamEpisodeDetail(ctx context.Context, tmdbID int, seasonNumber int, episodeNumber int, params url.Values) (*model.Episode, *model.ServiceError) {
 	var upstreamData map[string]any
 	var err *model.ServiceError
 
 	if seasonNumber < 0 && episodeNumber > 0 {
-		upstreamData, err = s.upstream.GetMovieDetail(episodeNumber, params)
+		upstreamData, err = s.upstream.GetMovieDetail(ctx, episodeNumber, params)
 	} else {
-		upstreamData, err = s.upstream.GetEpisodeDetail(tmdbID, seasonNumber, episodeNumber, params)
+		upstreamData, err = s.upstream.GetEpisodeDetail(ctx, tmdbID, seasonNumber, episodeNumber, params)
 	}
 	if err != nil {
 		logger.Error("获取上游剧集详情失败: TMDB ID=%d, 季号=%d, 剧集号=%d, 错误=%v", tmdbID, seasonNumber, episodeNumber, err)

@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"net/http"
@@ -88,7 +89,7 @@ func (ss *SeasonSplitter) GetLogicCache() *cache.Cache {
 }
 
 // 获取 LogicSeries (支持缓存)
-func (ss *SeasonSplitter) GetLogicSeries(tmdbID int, originalInfo map[string]any, params url.Values) (*model.LogicSeries, *model.ServiceError) {
+func (ss *SeasonSplitter) GetLogicSeries(ctx context.Context, tmdbID int, originalInfo map[string]any, params url.Values) (*model.LogicSeries, *model.ServiceError) {
 	cacheKey := fmt.Sprintf("logic_series_%d", tmdbID)
 
 	if cachedLogic, found := ss.logicCache.Get(cacheKey); found {
@@ -99,7 +100,7 @@ func (ss *SeasonSplitter) GetLogicSeries(tmdbID int, originalInfo map[string]any
 	}
 
 	logger.Debug("剧集逻辑缓存未命中: tmdbID=%d cacheKey=%s", tmdbID, cacheKey)
-	logic, err := ss.processTV(tmdbID, originalInfo, params)
+	logic, err := ss.processTV(ctx, tmdbID, originalInfo, params)
 	if err != nil {
 		return nil, model.NewServiceError(http.StatusInternalServerError, "构建剧集逻辑失败", err)
 	}
@@ -111,8 +112,8 @@ func (ss *SeasonSplitter) GetLogicSeries(tmdbID int, originalInfo map[string]any
 }
 
 // 从 CureTMDb 获取剧集信息
-func (ss *SeasonSplitter) fetchCureTMDbEntry(tvShow model.TVShow) (*model.SeriesEntry, error) {
-	if res, e := ss.cureTMDb.GetSeasonInfo(tvShow.ID); e == nil && len(res) > 0 {
+func (ss *SeasonSplitter) fetchCureTMDbEntry(ctx context.Context, tvShow model.TVShow) (*model.SeriesEntry, error) {
+	if res, e := ss.cureTMDb.GetSeasonInfo(ctx, tvShow.ID); e == nil && len(res) > 0 {
 		var se model.SeriesEntry
 		if err := se.Decode(res); err != nil {
 			return nil, err
@@ -123,7 +124,7 @@ func (ss *SeasonSplitter) fetchCureTMDbEntry(tvShow model.TVShow) (*model.Series
 }
 
 // 从 Bangumi API 获取剧集信息
-func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesEntry, error) {
+func (ss *SeasonSplitter) fetchBangumiEntry(ctx context.Context, tvShow model.TVShow) (*model.SeriesEntry, error) {
 	// 仅处理日本动漫且季数较少 (<3) 的情况
 	isAnime := slices.Contains(tvShow.GenreIds(), 16)
 	if !isAnime || !slices.Contains(tvShow.OriginCountry, "JP") {
@@ -137,7 +138,7 @@ func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesE
 
 	// 当季数为 2 时，检查是否应视为单季连载
 	if seasonCount == 2 {
-		shouldSkip, err := ss.handleTwoSeasonsCheck(tvShow)
+		shouldSkip, err := ss.handleTwoSeasonsCheck(ctx, tvShow)
 		if err != nil {
 			return nil, err
 		}
@@ -147,12 +148,12 @@ func (ss *SeasonSplitter) fetchBangumiEntry(tvShow model.TVShow) (*model.SeriesE
 	}
 
 	// 通用搜索逻辑
-	return ss.performGeneralBangumiSearch(tvShow)
+	return ss.performGeneralBangumiSearch(ctx, tvShow)
 }
 
 // 处理季数为2时的特殊逻辑
 // 返回: shouldSkip (是否跳过后续处理), err (错误信息)
-func (ss *SeasonSplitter) handleTwoSeasonsCheck(tvShow model.TVShow) (bool, error) {
+func (ss *SeasonSplitter) handleTwoSeasonsCheck(ctx context.Context, tvShow model.TVShow) (bool, error) {
 	airDate := tvShow.AirdateByValidOrder(2)
 	if airDate == nil {
 		airDate = tvShow.FindAirdateBySeasonNumber(2)
@@ -164,7 +165,7 @@ func (ss *SeasonSplitter) handleTwoSeasonsCheck(tvShow model.TVShow) (bool, erro
 		return false, nil
 	}
 
-	bangumiItems, err := ss.bangumiAPI.Search(*tvShow.OriginalName, airDate)
+	bangumiItems, err := ss.bangumiAPI.Search(ctx, *tvShow.OriginalName, airDate)
 	if err != nil {
 		logger.Error("Bangumi API 搜索 seasonCount=2 失败: %v", err)
 		return false, nil // 搜索失败不阻断流程，继续执行通用搜索
@@ -197,7 +198,7 @@ func (ss *SeasonSplitter) handleTwoSeasonsCheck(tvShow model.TVShow) (bool, erro
 		return false, nil
 	}
 
-	isSequential, err := ss.bangumiAPI.IsFirstEpisodeSequential(int(idVal))
+	isSequential, err := ss.bangumiAPI.IsFirstEpisodeSequential(ctx, int(idVal))
 	if err != nil {
 		logger.Error("Bangumi API GetSortAndEp 失败: %v", err)
 		return false, err
@@ -207,13 +208,13 @@ func (ss *SeasonSplitter) handleTwoSeasonsCheck(tvShow model.TVShow) (bool, erro
 }
 
 // 执行通用的 Bangumi 搜索并获取季信息
-func (ss *SeasonSplitter) performGeneralBangumiSearch(tvShow model.TVShow) (*model.SeriesEntry, error) {
+func (ss *SeasonSplitter) performGeneralBangumiSearch(ctx context.Context, tvShow model.TVShow) (*model.SeriesEntry, error) {
 	var airDateStr *string
 	if tvShow.FirstAirDate != nil {
 		airDateStr = tvShow.FirstAirDate
 	}
 
-	bangumiItems, err := ss.bangumiAPI.Search(*tvShow.OriginalName, airDateStr)
+	bangumiItems, err := ss.bangumiAPI.Search(ctx, *tvShow.OriginalName, airDateStr)
 	if err != nil {
 		logger.Error("Bangumi API 通用搜索季信息 (seasonCount < 3) 失败: %v", err)
 		return nil, nil // 搜索失败返回 nil, nil，由调用者决定如何处理
@@ -223,7 +224,7 @@ func (ss *SeasonSplitter) performGeneralBangumiSearch(tvShow model.TVShow) (*mod
 		return nil, nil
 	}
 
-	seriesEntry, err := ss.bangumiAPI.SeasonInfo(bangumiItems[0])
+	seriesEntry, err := ss.bangumiAPI.SeasonInfo(ctx, bangumiItems[0])
 	if err != nil {
 		return nil, fmt.Errorf("Bangumi API SeasonInfo 通用搜索后失败: %w", err)
 	}
@@ -232,18 +233,18 @@ func (ss *SeasonSplitter) performGeneralBangumiSearch(tvShow model.TVShow) (*mod
 }
 
 // 顺序从 CureTMDb 和 Bangumi 获取剧集信息
-func (ss *SeasonSplitter) fetchSeriesEntriesSequentially(tvShow model.TVShow) (seriesEntry *model.SeriesEntry, err error) {
-	seriesEntry, err = ss.fetchCureTMDbEntry(tvShow)
+func (ss *SeasonSplitter) fetchSeriesEntriesSequentially(ctx context.Context, tvShow model.TVShow) (seriesEntry *model.SeriesEntry, err error) {
+	seriesEntry, err = ss.fetchCureTMDbEntry(ctx, tvShow)
 	if seriesEntry != nil && err == nil {
 		return seriesEntry, err
 	}
 
-	seriesEntry, err = ss.fetchBangumiEntry(tvShow)
+	seriesEntry, err = ss.fetchBangumiEntry(ctx, tvShow)
 	return seriesEntry, err
 }
 
 // 处理电视剧信息并构建 LogicSeries
-func (ss *SeasonSplitter) processTV(tmdbID int, originalInfo map[string]any, params url.Values) (*model.LogicSeries, error) {
+func (ss *SeasonSplitter) processTV(ctx context.Context, tmdbID int, originalInfo map[string]any, params url.Values) (*model.LogicSeries, error) {
 	if originalInfo == nil {
 		return nil, nil
 	}
@@ -254,7 +255,7 @@ func (ss *SeasonSplitter) processTV(tmdbID int, originalInfo map[string]any, par
 		return nil, fmt.Errorf("解码原始电视剧数据到 model.TVShow 失败: %w", err)
 	}
 
-	seriesEntry, err := ss.fetchSeriesEntriesSequentially(tvShow)
+	seriesEntry, err := ss.fetchSeriesEntriesSequentially(ctx, tvShow)
 	if err != nil {
 		logger.Error("获取剧集信息失败: %v", err)
 		return nil, err
@@ -268,11 +269,11 @@ func (ss *SeasonSplitter) processTV(tmdbID int, originalInfo map[string]any, par
 		return nil, nil
 	}
 
-	return ss.buildLogicSeries(tmdbID, tvShow, seriesEntry, params)
+	return ss.buildLogicSeries(ctx, tmdbID, tvShow, seriesEntry, params)
 }
 
 // 并发从 TMDb 获取指定剧集季详情
-func (ss *SeasonSplitter) fetchRawSeasonsConcurrently(tmdbID int, series *model.SeriesEntry, maxSeason int, params url.Values) []map[string]any {
+func (ss *SeasonSplitter) fetchRawSeasonsConcurrently(ctx context.Context, tmdbID int, series *model.SeriesEntry, maxSeason int, params url.Values) []map[string]any {
 	var rawSeasonsMu sync.Mutex
 	rawSeasons := []map[string]any{}
 	var fetchWg sync.WaitGroup
@@ -281,7 +282,7 @@ func (ss *SeasonSplitter) fetchRawSeasonsConcurrently(tmdbID int, series *model.
 		fetchWg.Add(1)
 		go func(seasonNum int) {
 			defer fetchWg.Done()
-			if seasonDetail, err := ss.upstreamTMDB.GetSeasonDetail(tmdbID, seasonNum, params); err == nil && seasonDetail != nil {
+			if seasonDetail, err := ss.upstreamTMDB.GetSeasonDetail(ctx, tmdbID, seasonNum, params); err == nil && seasonDetail != nil {
 				rawSeasonsMu.Lock()
 				rawSeasons = append(rawSeasons, seasonDetail)
 				rawSeasonsMu.Unlock()
@@ -296,7 +297,7 @@ func (ss *SeasonSplitter) fetchRawSeasonsConcurrently(tmdbID int, series *model.
 }
 
 // 从原始信息和 SeriesEntry 构建 LogicSeries
-func (ss *SeasonSplitter) buildLogicSeries(tmdbID int, tvShow model.TVShow, series *model.SeriesEntry, params url.Values) (*model.LogicSeries, error) {
+func (ss *SeasonSplitter) buildLogicSeries(ctx context.Context, tmdbID int, tvShow model.TVShow, series *model.SeriesEntry, params url.Values) (*model.LogicSeries, error) {
 	logicSeries := &model.LogicSeries{
 		Name:        series.Name,
 		VoteAverage: *tvShow.VoteAverage,
@@ -309,10 +310,10 @@ func (ss *SeasonSplitter) buildLogicSeries(tmdbID int, tvShow model.TVShow, seri
 	// 索引 (含第 0 季)
 	rawEpLookup := make(map[string]map[string]any)
 	// 获取季详情 (不含第 0 季)
-	rawSeasons := ss.fetchRawSeasonsConcurrently(tmdbID, series, maxSeason, params)
+	rawSeasons := ss.fetchRawSeasonsConcurrently(ctx, tmdbID, series, maxSeason, params)
 
 	if series.HasAnySpecialSeason() {
-		seasonDetail, err := ss.upstreamTMDB.GetSeasonDetail(tmdbID, 0, params)
+		seasonDetail, err := ss.upstreamTMDB.GetSeasonDetail(ctx, tmdbID, 0, params)
 		if err != nil {
 			logger.Error("获取上游特殊季详情失败: TMDB ID=%d, 错误=%v", tmdbID, err)
 		}
@@ -382,7 +383,7 @@ func (ss *SeasonSplitter) buildLogicSeries(tmdbID int, tvShow model.TVShow, seri
 		isLast := i == len(RawEps)-1
 
 		for (func() bool { _, exists := missingEps[currSIdx]; return exists && len(currMissing) == 0 })() || isLast {
-			airDate, posterPath := ss.getFirstEpisodeMetadata(rawEpLookup, mapping[currSIdx], params)
+			airDate, posterPath := ss.getFirstEpisodeMetadata(ctx, rawEpLookup, mapping[currSIdx], params)
 			seasonsName := seasonsName[currSIdx]
 			logicSeries.AddSeason(&seasonsName, &airDate, currSIdx,
 				mapping[currSIdx], map[string]any{"poster_path": posterPath})
@@ -595,7 +596,7 @@ func (ss *SeasonSplitter) flattenAndSortEpisodes(rawSeasons []map[string]any) ([
 	return allEpisodes, nil
 }
 
-func (ss *SeasonSplitter) getFirstEpisodeMetadata(rawEpLookup map[string]map[string]any,
+func (ss *SeasonSplitter) getFirstEpisodeMetadata(ctx context.Context, rawEpLookup map[string]map[string]any,
 	epMap map[int]*model.EpisodeMap, params url.Values) (airDate string, posterPath *string) {
 	if len(epMap) == 0 {
 		return "", nil
@@ -616,7 +617,7 @@ func (ss *SeasonSplitter) getFirstEpisodeMetadata(rawEpLookup map[string]map[str
 	// 根据剧集类型获取元数据
 	if firstEpMap.SeasonNum() < 0 && firstEpMap.TMDBID != nil {
 		// 处理电影类型
-		return ss.getMovieMetadata(*firstEpMap.TMDBID, params)
+		return ss.getMovieMetadata(ctx, *firstEpMap.TMDBID, params)
 	}
 
 	// 处理剧集类型
@@ -624,8 +625,8 @@ func (ss *SeasonSplitter) getFirstEpisodeMetadata(rawEpLookup map[string]map[str
 }
 
 // 获取电影类型的元数据
-func (ss *SeasonSplitter) getMovieMetadata(tmdbID int, params url.Values) (airDate string, posterPath *string) {
-	upstreamMovie, err := ss.upstreamTMDB.GetMovieDetail(tmdbID, params)
+func (ss *SeasonSplitter) getMovieMetadata(ctx context.Context, tmdbID int, params url.Values) (airDate string, posterPath *string) {
+	upstreamMovie, err := ss.upstreamTMDB.GetMovieDetail(ctx, tmdbID, params)
 	if err != nil {
 		logger.Error("[ERROR] 获取电影详情失败: %v", err)
 		return "", nil

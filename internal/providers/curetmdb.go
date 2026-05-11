@@ -71,9 +71,9 @@ func NewCureTMDb() *CureTMDb {
 }
 
 // 根据给定的 TMDB ID 获取季度信息
-func (c *CureTMDb) GetSeasonInfo(tmdbID int) (map[string]any, error) {
+func (c *CureTMDb) GetSeasonInfo(ctx context.Context, tmdbID int) (map[string]any, error) {
 	// 优先从缓存加载 CureTMDb 数据
-	data, err := c.loadData()
+	data, err := c.loadData(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("GetSeasonInfo: 加载 CureTMDb 数据失败: %w", err)
 	}
@@ -87,7 +87,7 @@ func (c *CureTMDb) GetSeasonInfo(tmdbID int) (map[string]any, error) {
 
 // 加载 CureTMDb 数据，优先从本地文件，然后从缓存
 // 如果都没有，则从 URL 下载并保存到本地
-func (c *CureTMDb) loadData() (map[string]any, error) {
+func (c *CureTMDb) loadData(ctx context.Context) (map[string]any, error) {
 	// 尝试从缓存中获取 CureTMDb 数据
 	if cachedData, found := c.cache.Get(cureTMDbCacheKey); found {
 		if data, ok := cachedData.(map[string]any); ok {
@@ -127,7 +127,7 @@ func (c *CureTMDb) loadData() (map[string]any, error) {
 	logger.Info("正在从 CureTMDb 数据源 URL 加载数据: %s", c.sourceURL)
 
 	// 使用通用的 APIClient 发送 GET 请求
-	respBody, err := c.apiClient.DoRequest(context.Background(), http.MethodGet, c.sourceURL, "", nil, nil, nil)
+	respBody, err := c.apiClient.DoRequest(ctx, http.MethodGet, c.sourceURL, "", nil, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("加载 CureTMDb 数据失败: %w", err)
 	}

@@ -37,7 +37,7 @@ func ProxyHandler(c *gin.Context) {
 	query := c.Request.URL.RawQuery
 
 	// 创建上游请求, 流式传输请求体
-	req, err := http.NewRequest(c.Request.Method, upstreamURL, c.Request.Body)
+	req, err := http.NewRequestWithContext(c.Request.Context(), c.Request.Method, upstreamURL, c.Request.Body)
 	if err != nil {
 		logger.Error("%s: %v", ErrMsgCreateUpstreamRequestFailed, err)
 		c.String(http.StatusBadGateway, ErrMsgCreateUpstreamRequestFailed)
