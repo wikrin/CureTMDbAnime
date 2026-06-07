@@ -21,7 +21,7 @@
 
 2.  **安装依赖**
     ```bash
-    go mod tidy
+    go mod download
     ```
 
 3.  **运行服务**
@@ -43,7 +43,7 @@
     ```yaml
     services:
       curetmdbanime:
-          image: celebsev/curetmdbanime:latest # 假设此镜像是可用的，否则需要用户自行构建
+          image: celebsev/curetmdbanime:latest
           container_name: curetmdbanime
           network_mode: bridge
           ports:
@@ -65,15 +65,26 @@
 
 ## 配置说明
 
-项目使用环境变量进行配置。主要配置项如下：
+项目支持环境变量和命令行参数配置，命令行参数优先级高于环境变量。主要配置项如下：
 
-| 变量名 | 默认值 | 说明 |
-|--------|--------|------|
-| `HOST` | `0.0.0.0` | 服务监听地址 |
-| `PORT` | `8632` | 服务监听端口 |
-| `TMDB_UPSTREAM_URL` | `https://api.themoviedb.org` | TMDB API 上游地址 |
-| `CURE_SOURCE` | (GitHub Raw URL) | 修正规则的源数据 URL (JSON) |
-| `PROXY` | `None` | 可选：请求上游时使用的 HTTP 代理 |
+| 环境变量 | 命令行参数 | 默认值 | 说明 |
+|--------|------------|--------|------|
+| `HOST` | `--host` | `0.0.0.0` | 服务监听地址 |
+| `PORT` | `--port` | `8632` | 服务监听端口 |
+| `TMDB_API_URL` | `--tmdb-api-url` | `https://api.themoviedb.org` | TMDB API 上游地址 |
+| `CURE_SOURCE` | `--cure-source` | GitHub Raw URL | 修正规则的源数据 URL (JSON) |
+| `PROXY` | `--proxy` | 空 | 可选：请求上游时使用的 HTTP/HTTPS 代理 |
+| `DATA_DIR` | `--data-dir` | `/opt/data` | 数据存储目录 |
+| `BANGUMI_API_URL` | `--bangumi-api-url` | `https://api.bgm.tv/` | Bangumi API 上游地址 |
+| `BANGUMI_USE_PROXY` | `--bangumi-use-proxy` | `false` | Bangumi API 请求是否使用 `PROXY` |
+
+示例：
+
+```bash
+BANGUMI_API_URL=https://api.bgm.tv/ BANGUMI_USE_PROXY=true ./curetmdbanime
+
+./curetmdbanime --bangumi-api-url=https://api.bgm.tv/ --bangumi-use-proxy
+```
 
 ## API 接口
 
@@ -84,25 +95,3 @@
 - `GET /3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}`: 获取单集详情。
 
 其他未匹配 `/3/tv/*` 的请求将被直接代理到 TMDB 上游。
-
-## 项目结构
-
-```
-.
-├── go.mod                  # Go 模块文件，定义项目依赖和模块路径
-├── go.sum                  # Go 模块的校验和文件
-├── main.go                 # 程序入口点
-├── Dockerfile              # Docker 容器构建文件
-├── .dockerignore           # Docker 忽略文件
-├── .gitignore              # Git 忽略文件
-├── LICENSE                 # 许可证文件
-└── internal/               # 内部包，包含项目核心逻辑
-    ├── api/                # API 路由和处理函数 (proxy.go, router.go, tv_routes.go)
-    ├── collection/         # 数据集合处理工具 (collection.go)
-    ├── config/             # 配置管理 (config.go)
-    ├── logger/             # 日志工具 (logger.go)
-    ├── model/              # 数据模型和业务逻辑 (common.go, entry.go, error.go, logic.go, tmdb.go)
-    ├── net/                # 网络请求客户端和相关工具 (request.go)
-    ├── processor/          # 数据处理核心逻辑 (splitter.go, upstream.go)
-    ├── providers/          # 外部数据源（如 Bangumi、Cure Source）集成 (bangumi.go, curetmdb.go)
-    └── service/            # 业务服务层，包含具体业务逻辑实现 (tv_service.go)
