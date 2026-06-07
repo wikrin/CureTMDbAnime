@@ -17,8 +17,13 @@ import (
 	"curetmdbanime/internal/model"
 )
 
+// 用于控制共享 HTTP 客户端的行为
+// 这些参数让上游请求的连接复用和超时策略
 type ClientOptions struct {
-	UseProxy bool
+	UseProxy            bool
+	Timeout             time.Duration
+	MaxIdleConns        int
+	MaxIdleConnsPerHost int
 }
 
 var (
@@ -45,11 +50,24 @@ func GetHTTPClient(opts ClientOptions) *http.Client {
 
 // 创建一个新的 HTTP 客户端
 func NewHTTPClient(opts ClientOptions) *http.Client {
+	if opts.Timeout == 0 {
+		opts.Timeout = 30 * time.Second
+	}
+	if opts.MaxIdleConns == 0 {
+		opts.MaxIdleConns = 100
+	}
+	if opts.MaxIdleConnsPerHost == 0 {
+		opts.MaxIdleConnsPerHost = 50
+	}
+
 	transport := &http.Transport{
-		MaxIdleConns:          100,              // 最大空闲连接数
-		IdleConnTimeout:       90 * time.Second, // 空闲连接超时
-		TLSHandshakeTimeout:   10 * time.Second, // TLS 握手超时
-		ExpectContinueTimeout: 1 * time.Second,  // Expect: 100-continue 头超时
+		MaxIdleConns:          opts.MaxIdleConns,
+		MaxIdleConnsPerHost:   opts.MaxIdleConnsPerHost,
+		IdleConnTimeout:       5 * time.Minute,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ForceAttemptHTTP2:     true,
 	}
 
 	if opts.UseProxy && config.AppSettings.Proxy != "" {
@@ -63,7 +81,7 @@ func NewHTTPClient(opts ClientOptions) *http.Client {
 
 	return &http.Client{
 		Transport: transport,
-		Timeout:   30 * time.Second,
+		Timeout:   opts.Timeout,
 	}
 }
 

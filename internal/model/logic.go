@@ -176,9 +176,12 @@ func (em *EpisodeMap) SeasonNum() int {
 	return -1
 }
 
-// KeyPart2 返回映射的第二部分键 (通常是集号或 TMDB ID)
+// KeyPart2 返回映射的第二部分键（通常是集号或 TMDB ID）
 func (em *EpisodeMap) EpisodeNum() int {
-	if em.Type == "tv" || *em.EpisodeNumber > 0 {
+	if em == nil {
+		return 0
+	}
+	if em.EpisodeNumber != nil && (em.Type == "tv" || *em.EpisodeNumber > 0) {
 		return *em.EpisodeNumber
 	}
 	if em.TMDBID != nil {
