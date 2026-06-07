@@ -8,13 +8,15 @@ import (
 )
 
 const (
-	flagHost       = "host"
-	flagPort       = "port"
-	flagDebug      = "debug"
-	flagTmdbAPIURL = "tmdb-api-url"
-	flagCureSource = "cure-source"
-	flagProxy      = "proxy"
-	flagDataDir    = "data-dir"
+	flagHost            = "host"
+	flagPort            = "port"
+	flagDebug           = "debug"
+	flagTmdbAPIURL      = "tmdb-api-url"
+	flagCureSource      = "cure-source"
+	flagProxy           = "proxy"
+	flagDataDir         = "data-dir"
+	flagBangumiAPIURL   = "bangumi-api-url"
+	flagBangumiUseProxy = "bangumi-use-proxy"
 )
 
 // 保存 CLI 解析结果
@@ -58,6 +60,8 @@ func NewConfigFlagSet() *pflag.FlagSet {
 	fs.String(flagCureSource, "", "CureTMDb 数据源 URL")
 	fs.String(flagProxy, "", "HTTP/HTTPS 代理地址 (例如: http://127.0.0.1:7890)")
 	fs.String(flagDataDir, "", "数据存储目录")
+	fs.String(flagBangumiAPIURL, "", "Bangumi API URL")
+	fs.Bool(flagBangumiUseProxy, true, "Bangumi API 请求是否使用 PROXY 代理")
 
 	return fs
 }

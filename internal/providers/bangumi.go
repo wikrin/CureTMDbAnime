@@ -15,13 +15,14 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	"curetmdbanime/internal/collection"
+	"curetmdbanime/internal/config"
 	"curetmdbanime/internal/logger"
 	"curetmdbanime/internal/model"
 	"curetmdbanime/internal/net"
 )
 
 const (
-	BangumiAPIBaseURL          = "https://api.bgm.tv/"
+	BangumiAPIBaseURL          = config.DefaultBangumiAPIURL
 	BangumiAPISearchEndpoint   = "v0/search/subjects"
 	BangumiAPIDetailEndpoint   = "v0/subjects/%d"
 	BangumiAPISubjectsEndpoint = "v0/subjects/%d/subjects"
@@ -174,6 +175,7 @@ func GetBangumiAPIClient() *BangumiAPIClient {
 type BangumiAPIClient struct {
 	apiClient           *net.APIClient
 	cache               *cache.Cache
+	baseURL             string
 	urls                map[string]string
 	userAgent           string
 	seasonNumberRegexes []*regexp.Regexp
@@ -182,8 +184,9 @@ type BangumiAPIClient struct {
 // 创建一个新的 BangumiAPIClient 实例
 func NewBangumiAPIClient() *BangumiAPIClient {
 	return &BangumiAPIClient{
-		apiClient: net.NewAPIClient(),
+		apiClient: net.NewAPIClientWithProxy(config.AppSettings.BangumiUseProxy),
 		cache:     cache.New(BangumiCacheTTL, BangumiCacheCleanupInterval),
+		baseURL:   normalizeBangumiAPIBaseURL(config.AppSettings.BangumiAPIURL),
 		urls: map[string]string{
 			"search":   BangumiAPISearchEndpoint,
 			"detail":   BangumiAPIDetailEndpoint,
@@ -200,12 +203,21 @@ func NewBangumiAPIClient() *BangumiAPIClient {
 	}
 }
 
+func normalizeBangumiAPIBaseURL(baseURL string) string {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		baseURL = BangumiAPIBaseURL
+	}
+
+	return strings.TrimRight(baseURL, "/") + "/"
+}
+
 // 向 Bangumi API 发送请求
 func (b *BangumiAPIClient) invoke(ctx context.Context, method, endpoint string, body any, params url.Values) (any, error) {
 	cacheKeyBuilder := strings.Builder{}
 	cacheKeyBuilder.WriteString(method)
 	cacheKeyBuilder.WriteString(":")
-	cacheKeyBuilder.WriteString(BangumiAPIBaseURL)
+	cacheKeyBuilder.WriteString(b.baseURL)
 	cacheKeyBuilder.WriteString(endpoint)
 	if params != nil {
 		cacheKeyBuilder.WriteString("?")
@@ -222,7 +234,7 @@ func (b *BangumiAPIClient) invoke(ctx context.Context, method, endpoint string, 
 	headers := make(map[string]string)
 	headers["User-Agent"] = b.userAgent
 
-	bodyBytes, err := b.apiClient.DoRequest(ctx, method, BangumiAPIBaseURL, endpoint, body, params, headers)
+	bodyBytes, err := b.apiClient.DoRequest(ctx, method, b.baseURL, endpoint, body, params, headers)
 	if err != nil {
 		return nil, fmt.Errorf("Bangumi API 请求错误: %w", err)
 	}

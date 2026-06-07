@@ -10,49 +10,67 @@ import (
 
 // 环境变量键
 const (
-	EnvKeyHost       = "HOST"
-	EnvKeyPort       = "PORT"
-	EnvKeyDebug      = "DEBUG"
-	EnvKeyTmdbAPIURL = "TMDB_API_URL"
-	EnvKeyCureSource = "CURE_SOURCE"
-	EnvKeyProxy      = "PROXY"
-	EnvKeyDataDir    = "DATA_DIR"
+	EnvKeyHost            = "HOST"
+	EnvKeyPort            = "PORT"
+	EnvKeyDebug           = "DEBUG"
+	EnvKeyTmdbAPIURL      = "TMDB_API_URL"
+	EnvKeyCureSource      = "CURE_SOURCE"
+	EnvKeyProxy           = "PROXY"
+	EnvKeyDataDir         = "DATA_DIR"
+	EnvKeyBangumiAPIURL   = "BANGUMI_API_URL"
+	EnvKeyBangumiUseProxy = "BANGUMI_USE_PROXY"
 )
 
 // 默认值
 const (
-	DefaultHost       = "0.0.0.0"
-	DefaultPort       = 8632
-	DefaultDebug      = false
-	DefaultTmdbAPIURL = "https://api.themoviedb.org"
-	DefaultCureSource = "https://raw.githubusercontent.com/wikrin/CureTMDb/main/tv.json"
-	DefaultProxy      = ""
-	DefaultDataDir    = "/opt/data"
+	DefaultHost            = "0.0.0.0"
+	DefaultPort            = 8632
+	DefaultDebug           = false
+	DefaultTmdbAPIURL      = "https://api.themoviedb.org"
+	DefaultCureSource      = "https://raw.githubusercontent.com/wikrin/CureTMDb/main/tv.json"
+	DefaultProxy           = ""
+	DefaultDataDir         = "/opt/data"
+	DefaultBangumiAPIURL   = "https://api.bgm.tv/"
+	DefaultBangumiUseProxy = false
 )
 
 const (
-	configKeyHost       = "host"
-	configKeyPort       = "port"
-	configKeyDebug      = "debug"
-	configKeyTmdbAPIURL = "tmdb-api-url"
-	configKeyCureSource = "cure-source"
-	configKeyProxy      = "proxy"
-	configKeyDataDir    = "data-dir"
+	configKeyHost            = "host"
+	configKeyPort            = "port"
+	configKeyDebug           = "debug"
+	configKeyTmdbAPIURL      = "tmdb-api-url"
+	configKeyCureSource      = "cure-source"
+	configKeyProxy           = "proxy"
+	configKeyDataDir         = "data-dir"
+	configKeyBangumiAPIURL   = "bangumi-api-url"
+	configKeyBangumiUseProxy = "bangumi-use-proxy"
 )
 
 // 应用配置
 type Settings struct {
-	Host       string
-	Port       int
-	Debug      bool
-	TmdbAPIURL string
-	CureSource string
-	Proxy      string
-	DataDir    string
+	Host            string
+	Port            int
+	Debug           bool
+	TmdbAPIURL      string
+	CureSource      string
+	Proxy           string
+	DataDir         string
+	BangumiAPIURL   string
+	BangumiUseProxy bool
 }
 
 // 全局配置实例
-var AppSettings Settings
+var AppSettings = Settings{
+	Host:            DefaultHost,
+	Port:            DefaultPort,
+	Debug:           DefaultDebug,
+	TmdbAPIURL:      DefaultTmdbAPIURL,
+	CureSource:      DefaultCureSource,
+	Proxy:           DefaultProxy,
+	DataDir:         DefaultDataDir,
+	BangumiAPIURL:   DefaultBangumiAPIURL,
+	BangumiUseProxy: DefaultBangumiUseProxy,
+}
 
 // 接收 CLI 层已解析的配置参数，优先级: Default < ENV < CLI
 func LoadConfig(flagSet *pflag.FlagSet) error {
@@ -66,6 +84,8 @@ func LoadConfig(flagSet *pflag.FlagSet) error {
 	cfg.SetDefault(configKeyCureSource, DefaultCureSource)
 	cfg.SetDefault(configKeyProxy, DefaultProxy)
 	cfg.SetDefault(configKeyDataDir, DefaultDataDir)
+	cfg.SetDefault(configKeyBangumiAPIURL, DefaultBangumiAPIURL)
+	cfg.SetDefault(configKeyBangumiUseProxy, DefaultBangumiUseProxy)
 
 	if flagSet != nil {
 		if err := cfg.BindPFlags(flagSet); err != nil {
@@ -84,6 +104,8 @@ func LoadConfig(flagSet *pflag.FlagSet) error {
 		{key: configKeyCureSource, envKey: EnvKeyCureSource},
 		{key: configKeyProxy, envKey: EnvKeyProxy},
 		{key: configKeyDataDir, envKey: EnvKeyDataDir},
+		{key: configKeyBangumiAPIURL, envKey: EnvKeyBangumiAPIURL},
+		{key: configKeyBangumiUseProxy, envKey: EnvKeyBangumiUseProxy},
 	}
 
 	for _, binding := range bindings {
@@ -94,13 +116,15 @@ func LoadConfig(flagSet *pflag.FlagSet) error {
 	cfg.AutomaticEnv()
 
 	AppSettings = Settings{
-		Host:       cfg.GetString(configKeyHost),
-		Port:       cfg.GetInt(configKeyPort),
-		Debug:      cfg.GetBool(configKeyDebug),
-		TmdbAPIURL: cfg.GetString(configKeyTmdbAPIURL),
-		CureSource: cfg.GetString(configKeyCureSource),
-		Proxy:      cfg.GetString(configKeyProxy),
-		DataDir:    cfg.GetString(configKeyDataDir),
+		Host:            cfg.GetString(configKeyHost),
+		Port:            cfg.GetInt(configKeyPort),
+		Debug:           cfg.GetBool(configKeyDebug),
+		TmdbAPIURL:      cfg.GetString(configKeyTmdbAPIURL),
+		CureSource:      cfg.GetString(configKeyCureSource),
+		Proxy:           cfg.GetString(configKeyProxy),
+		DataDir:         cfg.GetString(configKeyDataDir),
+		BangumiAPIURL:   cfg.GetString(configKeyBangumiAPIURL),
+		BangumiUseProxy: cfg.GetBool(configKeyBangumiUseProxy),
 	}
 
 	return nil

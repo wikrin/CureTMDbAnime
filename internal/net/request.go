@@ -32,31 +32,35 @@ var (
 // 根据配置设置代理和请求超时
 func GetHTTPClientWrapper() *HTTPClientWrapper {
 	_clientOnce.Do(func() {
-		transport := &http.Transport{
-			MaxIdleConns:          100,              // 最大空闲连接数
-			IdleConnTimeout:       90 * time.Second, // 空闲连接超时
-			TLSHandshakeTimeout:   10 * time.Second, // TLS 握手超时
-			ExpectContinueTimeout: 1 * time.Second,  // Expect: 100-continue 头超时
-		}
-
-		// 配置代理
-		if config.AppSettings.Proxy != "" {
-			proxyURL, err := url.Parse(config.AppSettings.Proxy)
-			if err != nil {
-				logger.Error("解析代理 URL 失败: %v", err)
-			} else {
-				transport.Proxy = http.ProxyURL(proxyURL)
-			}
-		}
-
-		_clientWrapper = &HTTPClientWrapper{
-			Client: &http.Client{
-				Transport: transport,
-				Timeout:   30 * time.Second,
-			},
-		}
+		_clientWrapper = NewHTTPClientWrapper(true)
 	})
 	return _clientWrapper
+}
+
+// 创建一个新的 HTTPClientWrapper 实例，可控制是否使用全局代理配置
+func NewHTTPClientWrapper(useProxy bool) *HTTPClientWrapper {
+	transport := &http.Transport{
+		MaxIdleConns:          100,              // 最大空闲连接数
+		IdleConnTimeout:       90 * time.Second, // 空闲连接超时
+		TLSHandshakeTimeout:   10 * time.Second, // TLS 握手超时
+		ExpectContinueTimeout: 1 * time.Second,  // Expect: 100-continue 头超时
+	}
+
+	if useProxy && config.AppSettings.Proxy != "" {
+		proxyURL, err := url.Parse(config.AppSettings.Proxy)
+		if err != nil {
+			logger.Error("解析代理 URL 失败: %v", err)
+		} else {
+			transport.Proxy = http.ProxyURL(proxyURL)
+		}
+	}
+
+	return &HTTPClientWrapper{
+		Client: &http.Client{
+			Transport: transport,
+			Timeout:   30 * time.Second,
+		},
+	}
 }
 
 // 发送 HTTP 请求
@@ -119,6 +123,13 @@ type APIClient struct {
 func NewAPIClient() *APIClient {
 	return &APIClient{
 		HttpClient: GetHTTPClientWrapper(),
+	}
+}
+
+// 创建并返回一个新的 APIClient 实例，可控制是否使用全局代理配置
+func NewAPIClientWithProxy(useProxy bool) *APIClient {
+	return &APIClient{
+		HttpClient: NewHTTPClientWrapper(useProxy),
 	}
 }
 
