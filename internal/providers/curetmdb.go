@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -15,11 +14,6 @@ import (
 	"curetmdbanime/internal/config"
 	"curetmdbanime/internal/logger"
 	"curetmdbanime/internal/net"
-)
-
-var (
-	upstreamTMDbClient     *net.APIClient
-	upstreamTMDbClientOnce sync.Once
 )
 
 // CureTMDb 缓存键和过期时间
@@ -36,14 +30,6 @@ type CureTMDb struct {
 	cache         *cache.Cache
 }
 
-// 取上游 TMDb 客户端的单例实例
-func GetUpstreamTMDbClient() *net.APIClient {
-	upstreamTMDbClientOnce.Do(func() {
-		upstreamTMDbClient = net.NewAPIClient()
-	})
-	return upstreamTMDbClient
-}
-
 // 创建一个新的 CureTMDb 实例
 func NewCureTMDb() *CureTMDb {
 	source := config.AppSettings.CureSource
@@ -58,7 +44,7 @@ func NewCureTMDb() *CureTMDb {
 	c := &CureTMDb{
 		sourceURL:     sourceURL,
 		localFilePath: localPath,
-		apiClient:     GetUpstreamTMDbClient(),
+		apiClient:     net.NewAPIClient(net.ClientOptions{UseProxy: true}),
 		cache:         cache.New(cureTMDbCacheTTL, 10*time.Minute),
 	}
 

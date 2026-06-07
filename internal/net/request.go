@@ -17,28 +17,34 @@ import (
 	"curetmdbanime/internal/model"
 )
 
-// 提供 HTTP 请求方法
-type HTTPClientWrapper struct {
-	Client *http.Client // HTTP 客户端。
+type ClientOptions struct {
+	UseProxy bool
 }
 
-// 确保 HTTPClientWrapper 实例只创建一次
 var (
-	_clientWrapper *HTTPClientWrapper
-	_clientOnce    sync.Once
+	proxiedHTTPClient *http.Client
+	proxiedClientOnce sync.Once
+	directHTTPClient  *http.Client
+	directClientOnce  sync.Once
 )
 
-// 返回共享的 HTTPClientWrapper 单例
-// 根据配置设置代理和请求超时
-func GetHTTPClientWrapper() *HTTPClientWrapper {
-	_clientOnce.Do(func() {
-		_clientWrapper = NewHTTPClientWrapper(true)
+// 按代理策略返回共享的 HTTP 客户端
+func GetHTTPClient(opts ClientOptions) *http.Client {
+	if opts.UseProxy {
+		proxiedClientOnce.Do(func() {
+			proxiedHTTPClient = NewHTTPClient(opts)
+		})
+		return proxiedHTTPClient
+	}
+
+	directClientOnce.Do(func() {
+		directHTTPClient = NewHTTPClient(opts)
 	})
-	return _clientWrapper
+	return directHTTPClient
 }
 
-// 创建一个新的 HTTPClientWrapper 实例，可控制是否使用全局代理配置
-func NewHTTPClientWrapper(useProxy bool) *HTTPClientWrapper {
+// 创建一个新的 HTTP 客户端
+func NewHTTPClient(opts ClientOptions) *http.Client {
 	transport := &http.Transport{
 		MaxIdleConns:          100,              // 最大空闲连接数
 		IdleConnTimeout:       90 * time.Second, // 空闲连接超时
@@ -46,7 +52,7 @@ func NewHTTPClientWrapper(useProxy bool) *HTTPClientWrapper {
 		ExpectContinueTimeout: 1 * time.Second,  // Expect: 100-continue 头超时
 	}
 
-	if useProxy && config.AppSettings.Proxy != "" {
+	if opts.UseProxy && config.AppSettings.Proxy != "" {
 		proxyURL, err := url.Parse(config.AppSettings.Proxy)
 		if err != nil {
 			logger.Error("解析代理 URL 失败: %v", err)
@@ -55,17 +61,24 @@ func NewHTTPClientWrapper(useProxy bool) *HTTPClientWrapper {
 		}
 	}
 
-	return &HTTPClientWrapper{
-		Client: &http.Client{
-			Transport: transport,
-			Timeout:   30 * time.Second,
-		},
+	return &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
 	}
 }
 
-// 发送 HTTP 请求
-func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL string, headers map[string]string, body []byte) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, requestURL, bytes.NewBuffer(body))
+// 使用指定 HTTP 客户端发送原始 HTTP 请求
+func Request(ctx context.Context, httpClient *http.Client, method, requestURL string, headers map[string]string, body []byte) (*http.Response, error) {
+	if httpClient == nil {
+		return nil, fmt.Errorf("HTTP 客户端为空")
+	}
+
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, requestURL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("创建 HTTP 请求失败: %w", err)
 	}
@@ -76,7 +89,7 @@ func (h *HTTPClientWrapper) Request(ctx context.Context, method, requestURL stri
 		}
 	}
 
-	resp, err := h.Client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("执行 HTTP 请求失败: %w", err)
 	}
@@ -97,8 +110,8 @@ func isRestrictedHeader(header string) bool {
 }
 
 // 执行 GET 请求并返回响应
-func (h *HTTPClientWrapper) GetRes(ctx context.Context, requestURL string, headers map[string]string) (*http.Response, error) {
-	return h.Request(ctx, "GET", requestURL, headers, nil)
+func GetResponse(ctx context.Context, httpClient *http.Client, requestURL string, headers map[string]string) (*http.Response, error) {
+	return Request(ctx, httpClient, http.MethodGet, requestURL, headers, nil)
 }
 
 // 读取并返回响应体字节切片，完成后关闭响应体
@@ -116,20 +129,13 @@ func ReadResponseBody(resp *http.Response) ([]byte, error) {
 
 // 封装 HTTP 请求和 JSON 处理逻辑
 type APIClient struct {
-	HttpClient *HTTPClientWrapper
+	httpClient *http.Client
 }
 
 // 创建并返回一个新的 APIClient 实例
-func NewAPIClient() *APIClient {
+func NewAPIClient(opts ClientOptions) *APIClient {
 	return &APIClient{
-		HttpClient: GetHTTPClientWrapper(),
-	}
-}
-
-// 创建并返回一个新的 APIClient 实例，可控制是否使用全局代理配置
-func NewAPIClientWithProxy(useProxy bool) *APIClient {
-	return &APIClient{
-		HttpClient: NewHTTPClientWrapper(useProxy),
+		httpClient: GetHTTPClient(opts),
 	}
 }
 
@@ -156,7 +162,7 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 		reqURL = fmt.Sprintf("%s?%s", reqURL, params.Encode())
 	}
 
-	var reqBody io.Reader
+	var reqBody []byte
 	// 存在请求体则 JSON 编码
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -164,7 +170,7 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 			logger.Error("JSON 请求体编码失败: %v, 方法: %s, URL: %s", err, method, reqURL)
 			return nil, fmt.Errorf("JSON 请求体编码失败: %w", err)
 		}
-		reqBody = bytes.NewBuffer(jsonBody)
+		reqBody = jsonBody
 	}
 
 	if headers == nil {
@@ -175,24 +181,14 @@ func (c *APIClient) DoRequest(ctx context.Context, method, baseURL, endpoint str
 		headers["Content-Type"] = "application/json"
 	}
 
-	resp, err := c.HttpClient.Request(ctx, method, reqURL, headers, func() []byte {
-		if reqBody != nil {
-			buf := new(bytes.Buffer)
-			if _, err := buf.ReadFrom(reqBody); err != nil {
-				// 理论上 json.Marshal 成功后不会失败，记录此异常
-				logger.Error("从请求体读取数据到缓冲时发生意外错误: %v, 方法: %s, URL: %s", err, method, reqURL)
-				return nil
-			}
-			return buf.Bytes()
-		}
-		return nil
-	}())
-
+	resp, err := Request(ctx, c.httpClient, method, reqURL, headers, reqBody)
 	if err != nil {
 		logger.Error("API 请求失败: %v, 方法: %s, URL: %s", err, method, reqURL)
 		return nil, fmt.Errorf("API 请求失败: %w", err)
 	}
-	defer resp.Body.Close()
+	if resp == nil {
+		return nil, fmt.Errorf("API 请求失败，HTTP 响应为空")
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, readErr := ReadResponseBody(resp)

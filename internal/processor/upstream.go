@@ -23,15 +23,20 @@ var (
 
 // 负责与 TMDB API 交互
 type UpstreamTMDB struct {
-	httpClient *net.HTTPClientWrapper
+	httpClient *http.Client
+}
+
+// 创建一个 TMDB 上游客户端实例
+func NewUpstreamTMDB() *UpstreamTMDB {
+	return &UpstreamTMDB{
+		httpClient: net.GetHTTPClient(net.ClientOptions{UseProxy: true}),
+	}
 }
 
 // 返回 UpstreamTMDB 单例
 func GetUpstreamTMDBInstance() *UpstreamTMDB {
 	once.Do(func() {
-		upstreamTMDBInstance = &UpstreamTMDB{
-			httpClient: net.GetHTTPClientWrapper(),
-		}
+		upstreamTMDBInstance = NewUpstreamTMDB()
 	})
 	return upstreamTMDBInstance
 }
@@ -43,11 +48,10 @@ func (u *UpstreamTMDB) getTMDBData(ctx context.Context, path string, params url.
 		fullURL += "?" + params.Encode()
 	}
 
-	resp, err := u.httpClient.GetRes(ctx, fullURL, nil)
+	resp, err := net.GetResponse(ctx, u.httpClient, fullURL, nil)
 	if resp == nil {
 		return nil, model.NewServiceError(http.StatusInternalServerError, "HTTP 响应为空", err)
 	}
-	defer resp.Body.Close()
 
 	bodyBytes, err := net.ReadResponseBody(resp)
 	if err != nil {

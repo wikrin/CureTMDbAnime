@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
@@ -158,19 +157,6 @@ func numberConverter(s string) int {
 	return 0
 }
 
-var (
-	bangumiClientInstance *BangumiAPIClient
-	bangumiClientOnce     sync.Once
-)
-
-// 获取 Bangumi API 客户端的单例实例
-func GetBangumiAPIClient() *BangumiAPIClient {
-	bangumiClientOnce.Do(func() {
-		bangumiClientInstance = NewBangumiAPIClient()
-	})
-	return bangumiClientInstance
-}
-
 // 提供了与 Bangumi API 交互的方法
 type BangumiAPIClient struct {
 	apiClient           *net.APIClient
@@ -184,7 +170,7 @@ type BangumiAPIClient struct {
 // 创建一个新的 BangumiAPIClient 实例
 func NewBangumiAPIClient() *BangumiAPIClient {
 	return &BangumiAPIClient{
-		apiClient: net.NewAPIClientWithProxy(config.AppSettings.BangumiUseProxy),
+		apiClient: net.NewAPIClient(net.ClientOptions{UseProxy: config.AppSettings.BangumiUseProxy}),
 		cache:     cache.New(BangumiCacheTTL, BangumiCacheCleanupInterval),
 		baseURL:   normalizeBangumiAPIBaseURL(config.AppSettings.BangumiAPIURL),
 		urls: map[string]string{
