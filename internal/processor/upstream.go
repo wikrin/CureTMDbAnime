@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"curetmdbanime/internal/collection"
@@ -78,6 +79,13 @@ func (u *UpstreamTMDB) getTMDBData(ctx context.Context, path string, params url.
 
 // 获取指定 TMDB ID 电视剧详情
 func (u *UpstreamTMDB) GetTVDetail(ctx context.Context, tmdbID int, params url.Values) (map[string]any, *model.ServiceError) {
+	appendToResponse := params.Get("append_to_response")
+	if appendToResponse == "" {
+		params.Set("append_to_response", "external_ids")
+	} else if !strings.Contains(","+appendToResponse+",", ",external_ids,") {
+		params.Set("append_to_response", appendToResponse+",external_ids")
+	}
+
 	path := fmt.Sprintf("tv/%d", tmdbID)
 	return u.getTMDBData(ctx, path, params)
 }

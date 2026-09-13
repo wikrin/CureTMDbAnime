@@ -14,6 +14,7 @@ import (
 	"github.com/patrickmn/go-cache"
 
 	"curetmdbanime/internal/collection"
+	"curetmdbanime/internal/config"
 	"curetmdbanime/internal/logger"
 	"curetmdbanime/internal/model"
 	"curetmdbanime/internal/providers"
@@ -35,6 +36,7 @@ func GetSeasonSplitterInstance() *SeasonSplitter {
 		seasonSplitterInstance = &SeasonSplitter{
 			cureTMDb:     providers.NewCureTMDb(),
 			bangumiAPI:   providers.NewBangumiAPIClient(),
+			tvdbAPI:      providers.NewTVDBClient(),
 			upstreamTMDB: GetUpstreamTMDBInstance(),
 			logicCache:   cache.New(logicCacheTTL, 10*time.Minute), // 缓存共享于所有请求
 		}
@@ -46,6 +48,7 @@ func GetSeasonSplitterInstance() *SeasonSplitter {
 type SeasonSplitter struct {
 	cureTMDb     *providers.CureTMDb
 	bangumiAPI   *providers.BangumiAPIClient
+	tvdbAPI      *providers.TVDBClient
 	upstreamTMDB *UpstreamTMDB
 	logicCache   *cache.Cache
 }
@@ -125,28 +128,6 @@ func (ss *SeasonSplitter) fetchCureTMDbEntry(ctx context.Context, tvShow model.T
 
 // 从 Bangumi API 获取剧集信息
 func (ss *SeasonSplitter) fetchBangumiEntry(ctx context.Context, tvShow model.TVShow) (*model.SeriesEntry, error) {
-	// 仅处理日本动漫且季数较少 (<3) 的情况
-	isAnime := slices.Contains(tvShow.GenreIds(), 16)
-	if !isAnime || !slices.Contains(tvShow.OriginCountry, "JP") {
-		return nil, nil
-	}
-
-	seasonCount := tvShow.ValidSeasonCount()
-	if seasonCount <= 0 || seasonCount >= 3 {
-		return nil, nil
-	}
-
-	// 当季数为 2 时，检查是否应视为单季连载
-	if seasonCount == 2 {
-		shouldSkip, err := ss.handleTwoSeasonsCheck(ctx, tvShow)
-		if err != nil {
-			return nil, err
-		}
-		if shouldSkip {
-			return nil, nil // 条件满足但无 SeriesEntry 返回
-		}
-	}
-
 	// 通用搜索逻辑
 	return ss.performGeneralBangumiSearch(ctx, tvShow)
 }
@@ -232,15 +213,68 @@ func (ss *SeasonSplitter) performGeneralBangumiSearch(ctx context.Context, tvSho
 	return seriesEntry, nil
 }
 
-// 顺序从 CureTMDb 和 Bangumi 获取剧集信息
+// 按固定的 CureTMDb 和用户配置顺序获取剧集信息
 func (ss *SeasonSplitter) fetchSeriesEntriesSequentially(ctx context.Context, tvShow model.TVShow) (seriesEntry *model.SeriesEntry, err error) {
 	seriesEntry, err = ss.fetchCureTMDbEntry(ctx, tvShow)
 	if seriesEntry != nil && err == nil {
 		return seriesEntry, err
 	}
 
-	seriesEntry, err = ss.fetchBangumiEntry(ctx, tvShow)
-	return seriesEntry, err
+	// 仅处理日本动漫且季数较少 (<3) 的情况
+	isAnime := slices.Contains(tvShow.GenreIds(), 16)
+	if !isAnime || !slices.Contains(tvShow.OriginCountry, "JP") {
+		return nil, nil
+	}
+
+	seasonCount := tvShow.ValidSeasonCount()
+	if seasonCount <= 0 || seasonCount >= 3 {
+		return nil, nil
+	}
+
+	// 当季数为 2 时，检查是否应视为单季连载
+	if seasonCount == 2 {
+		shouldSkip, err := ss.handleTwoSeasonsCheck(ctx, tvShow)
+		if err != nil {
+			return nil, err
+		}
+		if shouldSkip {
+			return nil, nil // 条件满足但无 SeriesEntry 返回
+		}
+	}
+
+	for _, providerName := range config.AppSettings.SeasonProviderPriority {
+		var candidate *model.SeriesEntry
+		switch providerName {
+		case "bangumi":
+			candidate, err = ss.fetchBangumiEntry(ctx, tvShow)
+		case "tvdb":
+			if tvShow.ExternalIDs == nil {
+				// TVDB ID 不存在时，跳过 TVDB 查询
+				continue
+			}
+			tvdbID := collection.GetInt(tvShow.ExternalIDs, "tvdb_id")
+			if tvdbID <= 0 {
+				// TVDB ID 不存在或不是有效数字时，跳过 TVDB 查询
+				continue
+			}
+			candidate, err = ss.fetchTVDBEntry(ctx, tvdbID)
+		default:
+			logger.Warn("跳过未知的分季 provider: %s", providerName)
+			continue
+		}
+		if err != nil {
+			logger.Warn("分季 provider %s 获取信息失败: %v", providerName, err)
+			continue
+		}
+		if candidate != nil {
+			return candidate, nil
+		}
+	}
+	return nil, nil
+}
+
+func (ss *SeasonSplitter) fetchTVDBEntry(ctx context.Context, tvdbID int) (*model.SeriesEntry, error) {
+	return ss.tvdbAPI.GetSeriesEpisodes(ctx, tvdbID)
 }
 
 // 处理电视剧信息并构建 LogicSeries

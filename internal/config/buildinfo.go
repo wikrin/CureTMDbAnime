@@ -1,3 +1,6 @@
 package config
 
-var Version = "dev"
+var (
+	Version    = "dev"
+	TVDBAPIKey = ""
+)

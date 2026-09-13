@@ -6,6 +6,7 @@ WORKDIR /app
 ARG TARGETARCH
 ARG TARGETOS
 ARG VERSION
+ARG TVDB_API_KEY
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -15,7 +16,8 @@ RUN CGO_ENABLED=0 \
     GOARCH=$TARGETARCH \
     go build -ldflags " \
         -s -w \
-        -X curetmdbanime/internal/config.Version=${VERSION:-dev}" \
+        -X curetmdbanime/internal/config.Version=${VERSION:-dev} \
+        -X curetmdbanime/internal/config.TVDBAPIKey=${TVDB_API_KEY}" \
     -o ./bin/curetmdbanime \
     .
 

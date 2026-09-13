@@ -8,15 +8,19 @@ import (
 )
 
 const (
-	flagHost            = "host"
-	flagPort            = "port"
-	flagDebug           = "debug"
-	flagTmdbAPIURL      = "tmdb-api-url"
-	flagCureSource      = "cure-source"
-	flagProxy           = "proxy"
-	flagDataDir         = "data-dir"
-	flagBangumiAPIURL   = "bangumi-api-url"
-	flagBangumiUseProxy = "bangumi-use-proxy"
+	flagHost                   = "host"
+	flagPort                   = "port"
+	flagDebug                  = "debug"
+	flagTmdbAPIURL             = "tmdb-api-url"
+	flagCureSource             = "cure-source"
+	flagProxy                  = "proxy"
+	flagDataDir                = "data-dir"
+	flagBangumiAPIURL          = "bangumi-api-url"
+	flagBangumiUseProxy        = "bangumi-use-proxy"
+	flagSeasonProviderPriority = "season-provider-priority"
+	flagTVDBAPIKey             = "tvdb-api-key"
+	flagTVDBPIN                = "tvdb-pin"
+	flagTVDBAPIURL             = "tvdb-api-url"
 )
 
 // 保存 CLI 解析结果
@@ -62,6 +66,10 @@ func NewConfigFlagSet() *pflag.FlagSet {
 	fs.String(flagDataDir, "", "数据存储目录")
 	fs.String(flagBangumiAPIURL, "", "Bangumi API URL")
 	fs.Bool(flagBangumiUseProxy, true, "Bangumi API 请求是否使用 PROXY 代理")
+	fs.String(flagSeasonProviderPriority, "", "分季提供者优先级，逗号分隔，可选 bangumi,tvdb")
+	fs.String(flagTVDBAPIKey, "", "TVDB API Key")
+	fs.String(flagTVDBPIN, "", "TVDB Subscriber PIN（可选）")
+	fs.String(flagTVDBAPIURL, "", "TVDB API URL")
 
 	return fs
 }

@@ -99,6 +99,7 @@ type TVShow struct {
 	FirstAirDate     *string          `json:"first_air_date,omitempty" mapstructure:"first_air_date,omitempty"` // 节目的首播日期
 	Genres           []map[string]any `json:"genres,omitempty" mapstructure:"genres,omitempty"`                 // 类型列表
 	OriginCountry    []string         `json:"origin_country,omitempty" mapstructure:"origin_country,omitempty"` // 原产国
+	ExternalIDs      map[string]any   `json:"external_ids,omitempty" mapstructure:"external_ids,omitempty"`     // 外部 ID
 	Other            map[string]any   `mapstructure:",remain"`                                                  // 额外字段
 }
 
