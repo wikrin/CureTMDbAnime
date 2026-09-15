@@ -77,6 +77,8 @@
 | `DATA_DIR` | `--data-dir` | `/opt/data` | 数据存储目录 |
 | `BANGUMI_API_URL` | `--bangumi-api-url` | `https://api.bgm.tv/` | Bangumi API 上游地址 |
 | `BANGUMI_USE_PROXY` | `--bangumi-use-proxy` | `false` | Bangumi API 请求是否使用 `PROXY` |
+| `REFERENCE_PRIORITY` | `--reference-priority` | `tvdb,bangumi` | 分季参照源优先级，逗号分隔 |
+| `TVDB_API_URL` | `--tvdb-api-url` | `https://api4.thetvdb.com/v4` | TVDB API 上游地址 |
 
 示例：
 
@@ -84,7 +86,13 @@
 BANGUMI_API_URL=https://api.bgm.tv/ BANGUMI_USE_PROXY=true ./curetmdbanime
 
 ./curetmdbanime --bangumi-api-url=https://api.bgm.tv/ --bangumi-use-proxy
+
+# 使用 TVDB 优先
+REFERENCE_PRIORITY=tvdb,bangumi TVDB_API_KEY=your-api-key ./curetmdbanime
 ```
+
+分季参照源的执行顺序固定为 `CureTMDb -> REFERENCE_PRIORITY -> TMDB 原始数据`。
+`CureTMDb` 不可通过配置调整；`bangumi` 和 `tvdb` 可以按需调整顺序。
 
 ## API 接口
 
