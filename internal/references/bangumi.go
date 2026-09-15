@@ -1,4 +1,4 @@
-package providers
+package references
 
 import (
 	"context"
@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	BangumiAPIBaseURL          = config.DefaultBangumiAPIURL
 	BangumiAPISearchEndpoint   = "v0/search/subjects"
 	BangumiAPIDetailEndpoint   = "v0/subjects/%d"
 	BangumiAPISubjectsEndpoint = "v0/subjects/%d/subjects"
@@ -46,6 +45,8 @@ const (
 	BangumiSortKey          = "sort"
 	BangumiEpKey            = "ep"
 )
+
+var BangumiAPIBaseURL = config.DefaultSettings.BangumiAPIURL
 
 const (
 	DefaultEpisodeCount   = 12
@@ -544,7 +545,7 @@ func (b *BangumiAPIClient) ExtractSeasonNumber(name, nameCN string) int {
 			m := re.FindStringSubmatch(text)
 			if len(m) > 1 {
 				if num := numberConverter(m[1]); num != 0 {
-					logger.Info("%s 通过 Pattern=`%s` 匹配成功 Season=%d", text, re.String(), num)
+					logger.Info("%s 匹配成功 Season=%d", text, num)
 					return num
 				}
 				logger.Warn("匹配成功但转换失败: Pattern=`%s`, Captured=`%s`, Text=`%s`", re.String(), m[1], text)

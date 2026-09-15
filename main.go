@@ -38,8 +38,8 @@ func main() {
 	router := api.SetupRouter()
 	addr := fmt.Sprintf("%s:%d", config.AppSettings.Host, config.AppSettings.Port)
 	server := &http.Server{
-		Addr:    addr,
-		Handler: router,
+		Addr:           addr,
+		Handler:        router,
 		ReadTimeout:    30 * time.Second,
 		WriteTimeout:   120 * time.Second,
 		MaxHeaderBytes: 1 << 20,
