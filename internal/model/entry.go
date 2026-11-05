@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"curetmdbanime/internal/collection"
+	"curetmdbanime/internal/logger"
 )
 
 // 表示一个包含条目
@@ -189,6 +190,10 @@ func (se *SeriesEntry) Season(num int) *SeasonEntry {
 func (se *SeriesEntry) HasInconsistent(seasons map[int][]int) bool {
 	for _, season := range se.Seasons {
 		if !season.EpisodeCountValid(seasons) {
+			logger.Info(
+				"季度集数不一致: 季=%d, 期望集数=%d, 实际集数=%d",
+				season.SeasonNumber, season.EpisodeCount, len(seasons[season.SeasonNumber]),
+			)
 			return true
 		}
 	}

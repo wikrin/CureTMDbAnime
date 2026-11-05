@@ -88,7 +88,7 @@ func (s *TVService) applyTVLogicAndTransform(tmdbID int, originalTVShowData map[
 	// 如果存在自定义逻辑，则应用
 	if logicSeriesData != nil {
 		logger.Info("开始重写剧集信息: TMDB ID=%d, 剧集名称=%s", tmdbID, *tvShow.Name)
-		if logicSeriesData.Name != nil {
+		if logicSeriesData.Name != nil && *logicSeriesData.Name != *tvShow.Name {
 			tvShow.Name = logicSeriesData.Name
 			logger.Info("剧集名称已重写为: %s", *logicSeriesData.Name)
 		}
