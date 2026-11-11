@@ -294,7 +294,7 @@ func (ss *SeasonSplitter) processTV(ctx context.Context, tmdbID int, originalInf
 	}
 
 	if !seriesEntry.HasInconsistent(tvShow.SeasonsInfo()) {
-		logger.Info("剧集结构一致，无需构建: tmdbID=%d", tmdbID)
+		logger.Info("剧集各季度集数一致，使用原始数据")
 		return nil, nil
 	}
 
