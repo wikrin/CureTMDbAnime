@@ -103,18 +103,13 @@ type TVShow struct {
 	Other            map[string]any   `mapstructure:",remain"`                                                  // 额外字段
 }
 
-// 返回原始季信息
-func (t *TVShow) SeasonsInfo() map[int][]int {
-	origSeasonsMap := make(map[int][]int, len(t.Seasons))
+// 返回各季集数（episode_count）的映射，键为季编号，值为该季集数
+func (t *TVShow) SeasonEpisodeCounts() map[int]int {
+	counts := make(map[int]int, len(t.Seasons))
 	for _, item := range t.Seasons {
-		// 使用循环创建并填充从1开始的序列
-		episodeSlice := make([]int, int(*item.EpisodeCount))
-		for i := range episodeSlice {
-			episodeSlice[i] = i + 1
-		}
-		origSeasonsMap[item.SeasonNumber] = episodeSlice
+		counts[item.SeasonNumber] = int(*item.EpisodeCount)
 	}
-	return origSeasonsMap
+	return counts
 }
 
 // 返回指定季的 air_date

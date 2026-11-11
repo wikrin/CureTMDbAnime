@@ -64,12 +64,12 @@ func (se *SeasonEntry) HasSpecialSeason() bool {
 }
 
 // 检查实际剧集数量是否有效
-// 参数 seasons: 一个 map, 键为季编号, 值为剧集列表
+// 参数 seasonEpisodeCounts: 一个 map, 键为季编号, 值为该季集数
 // 返回值: 如果实际剧集数量小于或等于 SeasonEntry 中定义的剧集总数, 则返回 true；
 // 如果没有找到该季的剧集, 也视为有效（true）
-func (se *SeasonEntry) EpisodeCountValid(seasons map[int][]int) bool {
-	if actualEpisodes, ok := seasons[se.SeasonNumber]; ok {
-		return len(actualEpisodes) <= se.EpisodeCount
+func (se *SeasonEntry) EpisodeCountValid(seasonEpisodeCounts map[int]int) bool {
+	if actual, ok := seasonEpisodeCounts[se.SeasonNumber]; ok {
+		return actual <= se.EpisodeCount
 	}
 	return true // 未找到该季的剧集, 认为是有效的
 }
@@ -185,14 +185,15 @@ func (se *SeriesEntry) Season(num int) *SeasonEntry {
 }
 
 // 检查是否有任何季的剧集数量不一致
-// 参数 seasons: 一个 map, 键为季编号, 值为剧集列表
+// 参数 seasonEpisodeCounts: 一个 map, 键为季编号, 值为该季集数
 // 返回值: 如果存在任何季的剧集数量不一致, 则返回 true；否则返回 false
-func (se *SeriesEntry) HasInconsistent(seasons map[int][]int) bool {
+func (se *SeriesEntry) HasInconsistent(seasonEpisodeCounts map[int]int) bool {
 	for _, season := range se.Seasons {
-		if !season.EpisodeCountValid(seasons) {
+		if !season.EpisodeCountValid(seasonEpisodeCounts) {
+			actual := seasonEpisodeCounts[season.SeasonNumber]
 			logger.Info(
 				"季度集数不一致: 季=%d, 期望集数=%d, 实际集数=%d",
-				season.SeasonNumber, season.EpisodeCount, len(seasons[season.SeasonNumber]),
+				season.SeasonNumber, season.EpisodeCount, actual,
 			)
 			return true
 		}

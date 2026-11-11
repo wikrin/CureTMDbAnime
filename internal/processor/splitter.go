@@ -292,9 +292,9 @@ func (ss *SeasonSplitter) processTV(ctx context.Context, tmdbID int, originalInf
 	if seriesEntry == nil {
 		return nil, nil
 	}
-
-	if !seriesEntry.HasInconsistent(tvShow.SeasonsInfo()) {
-		logger.Info("剧集各季度集数一致，使用原始数据")
+	seasonEpisodeCounts := tvShow.SeasonEpisodeCounts()
+	if !seriesEntry.HasInconsistent(seasonEpisodeCounts) {
+		logger.Info("剧集各季度集数一致，使用原始数据: Seasons=%v", seasonEpisodeCounts)
 		return nil, nil
 	}
 
