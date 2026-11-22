@@ -3,10 +3,8 @@ package api
 import (
 	"context"
 	"crypto/subtle"
-	"errors"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,7 +31,7 @@ func RegisterManagementRoutes(router *gin.Engine) {
 		c.JSON(http.StatusOK, gin.H{
 			"service": "curetmdbanime", "api_version": 1, "status": "healthy",
 			"version": config.Version, "uptime_seconds": int64(time.Since(startedAt).Seconds()),
-			"capabilities":             gin.H{"logs": true, "upstreams": true, "persistent_logs": true},
+			"capabilities":             gin.H{"logs": true, "upstreams": true, "persistent_logs": true, "log_stream": true},
 			"management_auth_required": config.AppSettings.ManagementToken != "",
 			"logging":                  logger.Status(),
 		})
@@ -52,6 +50,7 @@ func RegisterManagementRoutes(router *gin.Engine) {
 		}
 		c.JSON(http.StatusOK, result)
 	})
+	group.GET("/logs/stream", logStream)
 	group.GET("/upstreams", func(c *gin.Context) {
 		select {
 		case probeGate <- struct{}{}:
@@ -148,43 +147,4 @@ func probeUpstream(parent context.Context, name, address, proxy string) upstream
 		result.Message = "reachable; upstream returned non-success status"
 	}
 	return result
-}
-
-func parseLogQuery(c *gin.Context) (logger.QueryOptions, error) {
-	query, err := url.ParseQuery(c.Request.URL.RawQuery)
-	if err != nil {
-		return logger.QueryOptions{}, errors.New("invalid query parameters")
-	}
-	options := logger.QueryOptions{Limit: logger.DefaultLimit, Filter: logger.Filter{Level: query.Get("level"), Keyword: query.Get("keyword")}}
-	if values, exists := query["after"]; exists {
-		if len(values) != 1 {
-			return options, errors.New("invalid pagination")
-		}
-		after, err := strconv.ParseUint(values[0], 10, 64)
-		if err != nil {
-			return options, errors.New("invalid pagination")
-		}
-		options.After = &after
-	}
-	if values, exists := query["before"]; exists {
-		if len(values) != 1 {
-			return options, errors.New("invalid pagination")
-		}
-		before, err := strconv.ParseUint(values[0], 10, 64)
-		if err != nil {
-			return options, errors.New("invalid pagination")
-		}
-		options.Before = &before
-	}
-	if values, exists := query["limit"]; exists {
-		if len(values) != 1 {
-			return options, errors.New("invalid pagination")
-		}
-		limit, err := strconv.Atoi(values[0])
-		if err != nil {
-			return options, errors.New("invalid pagination")
-		}
-		options.Limit = limit
-	}
-	return options, options.Validate()
 }

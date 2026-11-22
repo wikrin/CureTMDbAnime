@@ -147,11 +147,11 @@ func TestOptionalManagementAuthAndLogQuery(t *testing.T) {
 	if err := json.Unmarshal(request("/management/health", "").Body.Bytes(), &health); err != nil {
 		t.Fatal(err)
 	}
-	if health.AuthRequired || !health.Capabilities["persistent_logs"] || !health.Logging.Available {
+	if health.AuthRequired || !health.Capabilities["persistent_logs"] || !health.Capabilities["log_stream"] || !health.Logging.Available {
 		t.Fatal(health)
 	}
 	config.AppSettings.ManagementToken = "optional-secret"
-	for _, path := range []string{"/management/logs", "/management/upstreams"} {
+	for _, path := range []string{"/management/logs", "/management/logs/stream", "/management/upstreams"} {
 		for _, header := range []string{"", "Bearer wrong", "Basic optional-secret"} {
 			if response := request(path, header); response.Code != 401 {
 				t.Fatalf("%s %q: %d", path, header, response.Code)
@@ -225,17 +225,4 @@ func TestProbeUsesConfiguredTargets(t *testing.T) {
 	if w.Code != 429 {
 		t.Fatal("probe concurrency limit lost")
 	}
-}
-
-func setupManagementLogger(t *testing.T) string {
-	t.Helper()
-	old := config.AppSettings
-	config.AppSettings.ManagementToken = ""
-	t.Cleanup(func() { config.AppSettings = old })
-	dir := t.TempDir()
-	if err := logger.Initialize(dir, 1, 2); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = logger.Close() })
-	return dir
 }
