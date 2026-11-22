@@ -9,117 +9,91 @@ import (
 	"github.com/spf13/viper"
 )
 
-// 应用配置
+// 应用配置。新增普通配置只需在这里声明类型、参数名、默认值和说明。
 type Settings struct {
-	Host              string   `option:"host"`
-	Port              int      `option:"port"`
-	Debug             bool     `option:"debug"`
-	TmdbAPIURL        string   `option:"tmdb-api-url"`
-	CureSource        string   `option:"cure-source"`
-	Proxy             string   `option:"proxy"`
-	DataDir           string   `option:"data-dir"`
-	BangumiAPIURL     string   `option:"bangumi-api-url"`
-	BangumiUseProxy   bool     `option:"bangumi-use-proxy"`
-	ReferencePriority []string `option:"reference-priority"`
-	TVDBAPIKey        string   `option:"tvdb-api-key"`
-	TVDBAPIURL        string   `option:"tvdb-api-url"`
+	Host              string   `option:"host" default:"0.0.0.0" usage:"服务监听地址"`
+	Port              int      `option:"port" default:"8632" usage:"服务监听端口"`
+	Debug             bool     `option:"debug" default:"false" usage:"启用调试日志"`
+	TmdbAPIURL        string   `option:"tmdb-api-url" default:"https://api.themoviedb.org" usage:"TMDB API 上游地址"`
+	CureSource        string   `option:"cure-source" default:"https://raw.githubusercontent.com/wikrin/CureTMDb/main/tv.json" usage:"修正规则的源数据 URL (JSON)"`
+	Proxy             string   `option:"proxy" default:"" usage:"可选：请求上游时使用的 HTTP/HTTPS 代理" sensitive:"true"`
+	DataDir           string   `option:"data-dir" default:"/opt/data" usage:"数据存储目录"`
+	BangumiAPIURL     string   `option:"bangumi-api-url" default:"https://api.bgm.tv/" usage:"Bangumi API 上游地址"`
+	BangumiUseProxy   bool     `option:"bangumi-use-proxy" default:"false" usage:"Bangumi API 请求是否使用 PROXY"`
+	ReferencePriority []string `option:"reference-priority" default:"tvdb,bangumi" usage:"分季参照源优先级，逗号分隔"`
+	TVDBAPIKey        string   `option:"tvdb-api-key" default:"d3158670-26f0-48bb-9267-2f63781dca6b" usage:"TVDB API 密钥，可覆盖内置密钥" sensitive:"true"`
+	TVDBAPIURL        string   `option:"tvdb-api-url" default:"https://api4.thetvdb.com/v4" usage:"TVDB API 上游地址"`
 }
 
-var DefaultSettings = Settings{
-	Host:              "0.0.0.0",
-	Port:              8632,
-	TmdbAPIURL:        "https://api.themoviedb.org",
-	CureSource:        "https://raw.githubusercontent.com/wikrin/CureTMDb/main/tv.json",
-	DataDir:           "/opt/data",
-	BangumiAPIURL:     "https://api.bgm.tv/",
-	ReferencePriority: []string{"tvdb", "bangumi"},
-	TVDBAPIKey:        "d3158670-26f0-48bb-9267-2f63781dca6b",
-	TVDBAPIURL:        "https://api4.thetvdb.com/v4",
+var DefaultSettings = newDefaultSettings()
+
+// 分别构造默认值，避免列表字段与 DefaultSettings 共享底层数组。
+var AppSettings = newDefaultSettings()
+
+func newDefaultSettings() Settings {
+	var settings Settings
+	value := reflect.ValueOf(&settings).Elem()
+	for _, option := range settingsOptions {
+		decoded, err := decodeOptionValue(option.typ, option.defaultValue)
+		if err != nil {
+			panic(err) // 配置定义已在初始化时检查。
+		}
+		value.Field(option.index).Set(reflect.ValueOf(decoded))
+	}
+	return settings
 }
 
-var AppSettings = DefaultSettings
-
-// 接收 CLI 层已解析的配置参数，优先级: Default < ENV < CLI
+// 接收 CLI 层已解析的配置参数，优先级: Default < ENV < CLI。
+// 空环境变量保持 Viper 的原有行为：视为未设置；CLI 可显式传入空值。
 func LoadConfig(flagSet *pflag.FlagSet) error {
 	cfg := viper.New()
-	cfg.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
-	defaults := DefaultSettings
-	forEachConfigField(reflect.TypeFor[Settings](), reflect.ValueOf(defaults), func(field reflect.StructField, name string, value reflect.Value) {
-		if name == "reference-priority" {
-			cfg.SetDefault(name, strings.Join(value.Interface().([]string), ","))
-			return
+	defaults := reflect.ValueOf(DefaultSettings)
+	for _, option := range settingsOptions {
+		cfg.SetDefault(option.name, defaults.Field(option.index).Interface())
+		if err := cfg.BindEnv(option.name, option.env); err != nil {
+			return fmt.Errorf("绑定环境变量 %s 失败: %w", option.env, err)
 		}
-		cfg.SetDefault(name, value.Interface())
-	})
-
+	}
 	if flagSet != nil {
 		if err := cfg.BindPFlags(flagSet); err != nil {
 			return fmt.Errorf("绑定命令行参数失败: %w", err)
 		}
 	}
 
-	cfg.BindEnv("reference-priority", "REFERENCE_PRIORITY")
-	cfg.AutomaticEnv()
-	forEachConfigField(reflect.TypeFor[Settings](), reflect.ValueOf(defaults), func(field reflect.StructField, name string, value reflect.Value) {
-		cfg.Set(name, cfg.Get(name))
-	})
-
-	referencePriority, err := ParseReferencePriority(cfg.GetString("reference-priority"))
-	if err != nil {
+	var settings Settings
+	value := reflect.ValueOf(&settings).Elem()
+	for _, option := range settingsOptions {
+		decoded, err := decodeOptionValue(option.typ, cfg.Get(option.name))
+		if err != nil {
+			return fmt.Errorf("配置 --%s / %s 无效: %w", option.name, option.env, err)
+		}
+		value.Field(option.index).Set(reflect.ValueOf(decoded))
+	}
+	if err := settings.NormalizeAndValidate(); err != nil {
 		return err
 	}
-	cfg.Set("reference-priority", referencePriority)
-
-	settings := defaults
-	forEachConfigField(reflect.TypeFor[Settings](), reflect.ValueOf(&settings).Elem(), func(field reflect.StructField, name string, value reflect.Value) {
-		switch field.Type.Kind() {
-		case reflect.String:
-			value.SetString(cfg.GetString(name))
-		case reflect.Int:
-			value.SetInt(int64(cfg.GetInt(name)))
-		case reflect.Bool:
-			value.SetBool(cfg.GetBool(name))
-		}
-	})
-	settings.ReferencePriority = referencePriority
+	// 所有转换和校验都成功后才更新全局配置。
 	AppSettings = settings
-
 	return nil
 }
 
 func NewFlagSet() *pflag.FlagSet {
 	flags := pflag.NewFlagSet("option", pflag.ContinueOnError)
-	forEachConfigField(reflect.TypeFor[Settings](), reflect.Value{}, func(field reflect.StructField, name string, value reflect.Value) {
-		switch field.Type.Kind() {
-		case reflect.String:
-			flags.String(name, "", "")
-		case reflect.Int:
-			flags.Int(name, 0, "")
-		case reflect.Bool:
-			flags.Bool(name, false, "")
-		case reflect.Slice:
-			flags.String(name, "", "")
-		default:
-			panic(fmt.Sprintf("不支持的配置字段类型: %s", field.Type))
-		}
-	})
+	defaults := reflect.ValueOf(DefaultSettings)
+	for _, option := range settingsOptions {
+		option.registerFlag(flags, defaults.Field(option.index).Interface())
+	}
 	return flags
 }
 
-func forEachConfigField(typ reflect.Type, value reflect.Value, fn func(reflect.StructField, string, reflect.Value)) {
-	for index := 0; index < typ.NumField(); index++ {
-		field := typ.Field(index)
-		name := field.Tag.Get("option")
-		if name == "" || name == "-" {
-			continue
-		}
-		fieldValue := reflect.Value{}
-		if value.IsValid() {
-			fieldValue = value.Field(index)
-		}
-		fn(field, name, fieldValue)
+// NormalizeAndValidate 集中处理业务规则，不参与通用的配置来源和类型转换。
+func (s *Settings) NormalizeAndValidate() error {
+	references, err := ParseReferencePriority(strings.Join(s.ReferencePriority, ","))
+	if err != nil {
+		return fmt.Errorf("配置 --reference-priority / REFERENCE_PRIORITY 无效: %w", err)
 	}
+	s.ReferencePriority = references
+	return nil
 }
 
 // ParseReferencePriority parses the configurable references after CureTMDb.

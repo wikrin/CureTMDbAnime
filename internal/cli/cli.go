@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -20,6 +21,9 @@ func Execute(args []string, version string) (Result, bool, error) {
 	showVersion := configFlags.BoolP("version", "v", false, "print version")
 
 	if err := configFlags.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return Result{}, true, nil
+		}
 		return Result{}, false, err
 	}
 
