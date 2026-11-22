@@ -11,6 +11,7 @@ import (
 
 // 应用配置。新增普通配置只需在这里声明类型、参数名、默认值和说明。
 type Settings struct {
+	ManagementToken   string   `option:"management-token" default:"" usage:"可选管理接口令牌；为空时无需鉴权，设置后要求 Bearer 令牌" sensitive:"true"`
 	Host              string   `option:"host" default:"0.0.0.0" usage:"服务监听地址"`
 	Port              int      `option:"port" default:"8632" usage:"服务监听端口"`
 	Debug             bool     `option:"debug" default:"false" usage:"启用调试日志"`
@@ -18,6 +19,8 @@ type Settings struct {
 	CureSource        string   `option:"cure-source" default:"https://raw.githubusercontent.com/wikrin/CureTMDb/main/tv.json" usage:"修正规则的源数据 URL (JSON)"`
 	Proxy             string   `option:"proxy" default:"" usage:"可选：请求上游时使用的 HTTP/HTTPS 代理" sensitive:"true"`
 	DataDir           string   `option:"data-dir" default:"/opt/data" usage:"数据存储目录"`
+	LogMaxSizeMiB     int      `option:"log-max-size-mib" default:"10" usage:"单个日志文件大小上限（MiB），必须为正整数"`
+	LogMaxFiles       int      `option:"log-max-files" default:"5" usage:"日志文件总数上限（包含当前文件），必须为正整数"`
 	BangumiAPIURL     string   `option:"bangumi-api-url" default:"https://api.bgm.tv/" usage:"Bangumi API 上游地址"`
 	BangumiUseProxy   bool     `option:"bangumi-use-proxy" default:"false" usage:"Bangumi API 请求是否使用 PROXY"`
 	ReferencePriority []string `option:"reference-priority" default:"tvdb,bangumi" usage:"分季参照源优先级，逗号分隔"`
@@ -88,6 +91,12 @@ func NewFlagSet() *pflag.FlagSet {
 
 // NormalizeAndValidate 集中处理业务规则，不参与通用的配置来源和类型转换。
 func (s *Settings) NormalizeAndValidate() error {
+	if s.LogMaxSizeMiB <= 0 || int64(s.LogMaxSizeMiB) > (1<<63-1)/(1<<20) {
+		return fmt.Errorf("配置 --log-max-size-mib / LOG_MAX_SIZE_MIB 无效: 需要可转换为字节数的正整数")
+	}
+	if s.LogMaxFiles <= 0 {
+		return fmt.Errorf("配置 --log-max-files / LOG_MAX_FILES 无效: 需要正整数")
+	}
 	references, err := ParseReferencePriority(strings.Join(s.ReferencePriority, ","))
 	if err != nil {
 		return fmt.Errorf("配置 --reference-priority / REFERENCE_PRIORITY 无效: %w", err)
