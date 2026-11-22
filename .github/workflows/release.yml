@@ -24,21 +24,28 @@ jobs:
   set-globals:
     runs-on: ubuntu-latest
     outputs:
-      is_prerelease: ${{ github.event_name == 'release' && github.event.release.prerelease || github.event_name == 'workflow_dispatch' && github.event.inputs.is_prerelease }}
-      release_tag: ${{ github.event_name == 'release' && github.ref_name || github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag }}
-      target_commitish: ${{ github.event_name == 'release' && github.event.release.target_commitish || github.event_name == 'workflow_dispatch' && (github.event.inputs.target_commitish || github.ref) }}
-      ref_name: ${{ github.event_name == 'release' && github.ref_name || github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag }}
+      is_prerelease: ${{ github.event_name == 'release' && github.event.release.prerelease || inputs.is_prerelease || false }}
+      release_tag: ${{ github.event_name == 'release' && github.ref_name || inputs.release_tag }}
+      source_sha: ${{ steps.source.outputs.sha }}
+      ref_name: ${{ github.event_name == 'release' && github.ref_name || inputs.release_tag }}
       event_name: ${{ github.event_name }}
     steps:
-      - name: Dummy Step to set outputs
-        run: echo "Setting global variables..."
+      - name: Resolve source revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'release' && github.ref || inputs.target_commitish || github.sha }}
 
-  # 调用测试工作流
+      - name: Pin source commit
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # 所有测试和产物使用同一个已解析的提交。
   call-test:
+    needs: set-globals
     uses: ./.github/workflows/test.yml
     with:
-      base_sha: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-      head_sha: ${{ github.sha }}
+      base_sha: ${{ github.event.before || '' }}
+      head_sha: ${{ needs.set-globals.outputs.source_sha }}
     secrets: inherit
 
   # 交叉编译
@@ -52,6 +59,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.set-globals.outputs.source_sha }}
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -59,17 +68,32 @@ jobs:
           go-version-file: "go.mod"
 
       - name: Build Binary for ${{ matrix.os }}-${{ matrix.arch }}
+        env:
+          VERSION: ${{ needs.set-globals.outputs.release_tag }}
+          TVDB_API_KEY: ${{ secrets.TVDB_API_KEY }}
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
         run: |
-          BIN_DIR=./bin
-          mkdir -p $BIN_DIR
-          OUTPUT_NAME="curetmdbanime-${{ matrix.os }}-${{ matrix.arch }}"
-          VERSION="${{ needs.set-globals.outputs.release_tag }}"
+          if [[ -z "${TVDB_API_KEY//[[:space:]]/}" ]]; then
+            echo "::error::Configure the repository Actions secret TVDB_API_KEY before publishing."
+            exit 1
+          fi
+          # 防止密钥中的空白或引号破坏链接器参数；错误不回显密钥。
+          if [[ "$TVDB_API_KEY" =~ [[:space:]] || "$TVDB_API_KEY" == *"'"* || "$TVDB_API_KEY" == *'"'* ]]; then
+            echo "::error::TVDB_API_KEY must not contain whitespace or quotes."
+            exit 1
+          fi
 
-          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} CGO_ENABLED=0 \
-          go build -ldflags " \
-          -s -w \
-          -X curetmdbanime/internal/config.Version=${VERSION}" \
-          -o "${BIN_DIR}/${OUTPUT_NAME}" .
+          BIN_DIR=./bin
+          mkdir -p "$BIN_DIR"
+          OUTPUT_NAME="curetmdbanime-${GOOS}-${GOARCH}"
+
+          go build -ldflags "\
+            -s -w \
+            -X 'curetmdbanime/internal/config.Version=${VERSION}' \
+            -X 'curetmdbanime/internal/config.BuiltinTVDBAPIKey=${TVDB_API_KEY}'" \
+            -o "${BIN_DIR}/${OUTPUT_NAME}" .
 
       - name: Upload Binaries
         uses: actions/upload-artifact@v6
@@ -77,13 +101,22 @@ jobs:
           name: binaries-${{ matrix.os }}-${{ matrix.arch }}
           path: ./bin
 
-  # Docker 构建
+  # 复用统一构建的 Linux 二进制，不在 Docker 中重新编译或注入密钥。
   docker_build:
-    needs: [set-globals, call-test]
+    needs: [set-globals, build]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.set-globals.outputs.source_sha }}
+
+      - name: Download Linux binaries
+        uses: actions/download-artifact@v8
+        with:
+          path: ./bin
+          pattern: binaries-linux-*
+          merge-multiple: true
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -100,8 +133,8 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/curetmdbanime
           tags: |
-            type=raw,value=latest,enable=${{ !needs.set-globals.outputs.is_prerelease && needs.set-globals.outputs.event_name == 'release' }}
-            type=raw,value=preview,enable=${{ needs.set-globals.outputs.is_prerelease }}
+            type=raw,value=latest,enable=${{ needs.set-globals.outputs.is_prerelease == 'false' && needs.set-globals.outputs.event_name == 'release' }}
+            type=raw,value=preview,enable=${{ needs.set-globals.outputs.is_prerelease == 'true' }}
             type=raw,value=${{ needs.set-globals.outputs.ref_name }}
 
       - name: Build and Push Docker Image
@@ -112,8 +145,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-          build-args: |
-            VERSION=${{ needs.set-globals.outputs.release_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -128,7 +159,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
         with:
-          ref: ${{ needs.set-globals.outputs.target_commitish }}
+          ref: ${{ needs.set-globals.outputs.source_sha }}
 
       - name: Download all build artifacts
         uses: actions/download-artifact@v8
@@ -141,4 +172,6 @@ jobs:
         with:
           files: ./artifacts/**/*
           tag_name: ${{ needs.set-globals.outputs.release_tag }}
+          target_commitish: ${{ needs.set-globals.outputs.source_sha }}
+          prerelease: ${{ needs.set-globals.outputs.is_prerelease == 'true' }}
           name: ${{ needs.set-globals.outputs.release_tag }}

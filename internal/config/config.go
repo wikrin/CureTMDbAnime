@@ -24,7 +24,7 @@ type Settings struct {
 	BangumiAPIURL     string   `option:"bangumi-api-url" default:"https://api.bgm.tv/" usage:"Bangumi API 上游地址"`
 	BangumiUseProxy   bool     `option:"bangumi-use-proxy" default:"false" usage:"Bangumi API 请求是否使用 PROXY"`
 	ReferencePriority []string `option:"reference-priority" default:"tvdb,bangumi" usage:"分季参照源优先级，逗号分隔"`
-	TVDBAPIKey        string   `option:"tvdb-api-key" default:"d3158670-26f0-48bb-9267-2f63781dca6b" usage:"TVDB API 密钥，可覆盖内置密钥" sensitive:"true"`
+	TVDBAPIKey        string   `option:"tvdb-api-key" default:"" usage:"TVDB API 密钥，可覆盖构建时内置密钥" sensitive:"true"`
 	TVDBAPIURL        string   `option:"tvdb-api-url" default:"https://api4.thetvdb.com/v4" usage:"TVDB API 上游地址"`
 }
 
@@ -43,6 +43,7 @@ func newDefaultSettings() Settings {
 		}
 		value.Field(option.index).Set(reflect.ValueOf(decoded))
 	}
+	settings.TVDBAPIKey = strings.TrimSpace(BuiltinTVDBAPIKey)
 	return settings
 }
 

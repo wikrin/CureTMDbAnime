@@ -279,7 +279,7 @@ func TestFlagsHaveDefaultsUsageAndNoSecrets(t *testing.T) {
 		if !strings.Contains(help, "--"+option.name) || !strings.Contains(help, option.usage) {
 			t.Fatalf("help missing option or usage for %s", option.name)
 		}
-		defaultValue := optionValueString(option.defaultValue)
+		defaultValue := optionValueString(reflect.ValueOf(DefaultSettings).Field(option.index).Interface())
 		if option.sensitive && defaultValue != "" {
 			if strings.Contains(help, defaultValue) || strings.Contains(flag.DefValue, defaultValue) {
 				t.Fatalf("help exposed the default for %s", option.name)
