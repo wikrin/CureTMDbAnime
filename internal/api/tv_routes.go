@@ -68,7 +68,7 @@ func GetTVDetails(ginContext *gin.Context, tvService *service.TVService, ctx con
 	tmdbIDStr := ginContext.Param("tmdb_id")
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的 TMDB ID 格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的 TMDB ID=%s", tmdbIDStr), err))
 		return
 	}
 
@@ -94,12 +94,12 @@ func GetSeasonDetails(ginContext *gin.Context, tvService *service.TVService, ctx
 
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的 TMDB ID 格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的 TMDB ID=%s", tmdbIDStr), err))
 		return
 	}
 	seasonNumber, err := strconv.Atoi(seasonNumberStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的季度号格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的季度号=%s", seasonNumberStr), err))
 		return
 	}
 
@@ -126,17 +126,17 @@ func GetEpisodeDetails(ginContext *gin.Context, tvService *service.TVService, ct
 
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的 TMDB ID 格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的 TMDB ID=%s", tmdbIDStr), err))
 		return
 	}
 	seasonNumber, err := strconv.Atoi(seasonNumberStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的季度号格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的季度号=%s", seasonNumberStr), err))
 		return
 	}
 	episodeNumber, err := strconv.Atoi(episodeNumberStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的剧集号格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的剧集号=%s", episodeNumberStr), err))
 		return
 	}
 

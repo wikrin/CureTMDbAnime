@@ -37,7 +37,7 @@ func GetSeriesMappings(ginContext *gin.Context) {
 
 	tmdbID, err := strconv.Atoi(tmdbIDStr)
 	if err != nil {
-		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, "无效的 TMDB ID 格式", err))
+		handleError(ginContext, model.NewServiceError(http.StatusBadRequest, fmt.Sprintf("无效的 TMDB ID=%s", tmdbIDStr), err))
 		return
 	}
 
